@@ -1,0 +1,1 @@
+-   [ ] period in day not correct because of empty sessions taking 4 spaces
