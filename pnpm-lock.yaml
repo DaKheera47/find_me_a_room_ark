@@ -11,6 +11,9 @@ dependencies:
   csv-writer:
     specifier: ^1.6.0
     version: 1.6.0
+  date-fns:
+    specifier: ^3.3.1
+    version: 3.3.1
   fs:
     specifier: 0.0.1-security
     version: 0.0.1-security
@@ -368,6 +371,10 @@ packages:
   /data-uri-to-buffer@6.0.2:
     resolution: {integrity: sha512-7hvf7/GW8e86rW0ptuwS3OcBGDjIi6SZva7hCyWC0yYry2cOPmLIjXAUHI6DK2HsnwJd9ifmt57i8eV2n4YNpw==}
     engines: {node: '>= 14'}
+    dev: false
+
+  /date-fns@3.3.1:
+    resolution: {integrity: sha512-y8e109LYGgoQDveiEBD3DYXKba1jWf5BA8YU1FL5Tvm0BTdEfy54WLCwnuYWZNnzzvALy/QQ4Hov+Q9RVRv+Zw==}
     dev: false
 
   /debug@4.3.4:

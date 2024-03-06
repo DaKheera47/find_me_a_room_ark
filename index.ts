@@ -1,16 +1,27 @@
-import puppeteer from "puppeteer";
-import { createReadStream } from "fs";
-import { parse } from "csv-parse";
+import { parse as parseCSV } from "csv-parse";
 import { createObjectCsvWriter } from "csv-writer";
+import { format, parse } from "date-fns";
+import { createReadStream } from "fs";
+import puppeteer from "puppeteer";
+import {
+    DayAbbreviation,
+    getDayFullNameFromAbbreviation,
+    getNextOccurrenceOfDay,
+} from "./utils";
 
 const buildings: Building[] = [];
+let rooms: Room[] = [];
 const roomsByBuilding: { [key: string]: Room[] } = {};
 const VALID_EVENT_CLASSNAMES = ["scan_open", "TimeTableEvent"];
+const DAY_NAME_COLUMN_CLASSNAMES = [
+    "TimeTableRowHeader",
+    "TimeTableCurrentRowHeader",
+];
 
 const readBuildingsFromCSV = async (filePath: string): Promise<void> => {
     return new Promise((resolve, reject) => {
         createReadStream(filePath)
-            .pipe(parse({ delimiter: ",", from_line: 2 })) // Assuming the first row is headers
+            .pipe(parseCSV({ delimiter: ",", from_line: 2 })) // Assuming the first row is headers
             .on("data", (row) => {
                 buildings.push({
                     name: row[0].trim(),
@@ -18,6 +29,26 @@ const readBuildingsFromCSV = async (filePath: string): Promise<void> => {
                     longitude: parseFloat(row[2].trim()),
                     address: row[3].trim(),
                     code: row[4].trim().toUpperCase(),
+                });
+            })
+            .on("end", () => {
+                resolve();
+            })
+            .on("error", (error) => {
+                reject(error);
+            });
+    });
+};
+
+const readRoomsFromCSV = async (filePath: string): Promise<void> => {
+    return new Promise((resolve, reject) => {
+        createReadStream(filePath)
+            .pipe(parseCSV({ delimiter: "," }))
+            .on("data", (row) => {
+                rooms.push({
+                    buildingCode: row[0].trim(),
+                    name: row[1].trim(),
+                    url: row[2].trim(),
                 });
             })
             .on("end", () => {
@@ -87,14 +118,18 @@ const getRoomLinks = async () => {
     await browser.close();
 };
 
-async function scrapeRoomTimeTable(roomUrl: string): Promise<void> {
+async function scrapeRoomTimeTable(
+    roomUrl: string,
+    roomName: string
+): Promise<void> {
     const browser = await puppeteer.launch({ headless: true });
     const page = await browser.newPage();
+    let output: any = [];
 
     await page.goto(roomUrl);
 
     const rows = await page.$$eval(".TimeTableTable tr", (trs) =>
-        trs.slice(1).map((tr) => {
+        trs.map((tr) => {
             return Array.from(tr.querySelectorAll("td"), (td) => {
                 // First, replace <br> tags with \n
                 const innerHtmlWithNewLines = td.innerHTML.replace(
@@ -110,11 +145,17 @@ async function scrapeRoomTimeTable(roomUrl: string): Promise<void> {
                     text: text,
                     className: td.className,
                 };
-            }).slice(1);
+            });
         })
     );
 
     rows.forEach((row, rowIdx) => {
+        const dayNameColumn = row[0].text.replace(/\n/g, "");
+        const dayFullName = getDayFullNameFromAbbreviation(
+            dayNameColumn as DayAbbreviation
+        );
+        const dayDate = getNextOccurrenceOfDay(dayFullName);
+
         row.forEach((column, colIdx) => {
             if (VALID_EVENT_CLASSNAMES.includes(column.className)) {
                 const columnText = column.text;
@@ -130,13 +171,31 @@ async function scrapeRoomTimeTable(roomUrl: string): Promise<void> {
                     const topIdx = rowIdx + 1;
                     const slotInDay = colIdx + 1;
 
-                    console.log({
+                    // Assuming 'time' is in 'HH:mm - HH:mm'
+                    const [startTime, endTime] = splitText[0].split(" - ");
+                    // Combine dayDate with startTime for full start dateTime
+                    const startDateString = format(
+                        parse(startTime, "HH:mm", dayDate),
+                        "yyyy-MM-dd'T'HH:mm:ss"
+                    );
+
+                    // Optionally, combine dayDate with endTime for full end dateTime
+                    const endDateString = format(
+                        parse(endTime, "HH:mm", dayDate),
+                        "yyyy-MM-dd'T'HH:mm:ss"
+                    );
+
+                    output.push({
                         topIdx,
                         slotInDay,
                         time,
                         module,
                         lecturer,
                         group,
+                        roomName,
+                        day: dayFullName,
+                        startDateString,
+                        endDateString,
                     });
                 }
             }
@@ -144,6 +203,7 @@ async function scrapeRoomTimeTable(roomUrl: string): Promise<void> {
     });
 
     await browser.close();
+    return output;
 }
 
 const writeRoomsToCSV = async (filePath: string) => {
@@ -170,7 +230,21 @@ const main = async () => {
     // await readBuildingsFromCSV("./static/preston_buildings.csv");
     // await getRoomLinks();
     // await writeRoomsToCSV("./out/rooms_grouped.csv");
-    scrapeRoomTimeTable("http://apps.uclan.ac.uk/MvCRoomTimetable/CM/CM234");
+
+    // read rooms from csv
+    await readRoomsFromCSV("./out/rooms_grouped.csv");
+
+    // limit to 5 rooms from cm building
+    rooms = rooms.filter((room) => room.buildingCode === "CM").slice(0, 1);
+
+    // scrape room timetable
+    for (const room of rooms) {
+        console.log(`Scraping ${room.name}... (${room.url})`);
+        const scrapeResult = await scrapeRoomTimeTable(room.url, room.name);
+        console.log(scrapeResult);
+    }
+
+    // scrapeRoomTimeTable("http://apps.uclan.ac.uk/MvCRoomTimetable/CM/CM034");
 };
 
 main().catch(console.error);
