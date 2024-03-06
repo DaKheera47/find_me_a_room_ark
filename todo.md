@@ -1,1 +1,2 @@
--   [x] period in day not correct because of empty sessions taking 4 spaces
+-   [ ] period in day not correct because of empty sessions taking 4 spaces
+-   [ ] clashing classes get skipped? CM234

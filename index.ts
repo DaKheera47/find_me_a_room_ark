@@ -1,6 +1,15 @@
+import cors from "cors";
 import { parse as parseCSV } from "csv-parse";
 import { createObjectCsvWriter } from "csv-writer";
-import { format, parse } from "date-fns";
+import {
+    format,
+    getHours,
+    getMinutes,
+    isWithinInterval,
+    parse,
+    parseISO,
+} from "date-fns";
+import express from "express";
 import { createReadStream } from "fs";
 import puppeteer from "puppeteer";
 import {
@@ -17,6 +26,14 @@ const DAY_NAME_COLUMN_CLASSNAMES = [
     "TimeTableRowHeader",
     "TimeTableCurrentRowHeader",
 ];
+
+const app = express();
+const port = 3000; // The port on which the server will run
+
+app.use(cors());
+
+// Middleware to parse JSON bodies
+app.use(express.json());
 
 const readBuildingsFromCSV = async (filePath: string): Promise<void> => {
     return new Promise((resolve, reject) => {
@@ -40,12 +57,15 @@ const readBuildingsFromCSV = async (filePath: string): Promise<void> => {
     });
 };
 
-const readRoomsFromCSV = async (filePath: string): Promise<void> => {
+const readRoomsFromCSV = async (
+    outArr: Room[],
+    filePath: string
+): Promise<void> => {
     return new Promise((resolve, reject) => {
         createReadStream(filePath)
             .pipe(parseCSV({ delimiter: "," }))
             .on("data", (row) => {
-                rooms.push({
+                outArr.push({
                     buildingCode: row[0].trim(),
                     name: row[1].trim(),
                     url: row[2].trim(),
@@ -118,10 +138,7 @@ const getRoomLinks = async () => {
     await browser.close();
 };
 
-async function scrapeRoomTimeTable(
-    roomUrl: string,
-    roomName: string
-): Promise<void> {
+async function scrapeRoomTimeTable(roomUrl: string, roomName: string) {
     const browser = await puppeteer.launch({ headless: true });
     const page = await browser.newPage();
     let output: any = [];
@@ -232,7 +249,7 @@ const main = async () => {
     // await writeRoomsToCSV("./out/rooms_grouped.csv");
 
     // read rooms from csv
-    await readRoomsFromCSV("./out/rooms_grouped.csv");
+    await readRoomsFromCSV(rooms, "./out/rooms_grouped.csv");
 
     // limit to 5 rooms from cm building
     rooms = rooms.filter((room) => room.buildingCode === "CM").slice(0, 1);
@@ -251,4 +268,145 @@ const main = async () => {
     // scrapeRoomTimeTable("http://apps.uclan.ac.uk/MvCRoomTimetable/CM/CM034");
 };
 
-main().catch(console.error);
+// main().catch(console.error);
+
+function normalizeDateTime(checkDateTime: Date, dateTimeString: string): Date {
+    const dateTime = parseISO(dateTimeString);
+    // Adjust the date of dateTime to match checkDateTime
+    const normalizedDateTime = new Date(
+        checkDateTime.getFullYear(),
+        checkDateTime.getMonth(),
+        checkDateTime.getDate(),
+        getHours(dateTime),
+        getMinutes(dateTime)
+    );
+    return normalizedDateTime;
+}
+function findRoomAvailability(
+    entries: TimetableEntry[],
+    checkDateTime: Date
+): void {
+    // Normalize checkDateTime to disregard seconds and milliseconds
+    checkDateTime = new Date(
+        checkDateTime.getFullYear(),
+        checkDateTime.getMonth(),
+        checkDateTime.getDate(),
+        checkDateTime.getHours(),
+        checkDateTime.getMinutes()
+    );
+
+    let isAvailableNow = true;
+
+    for (const entry of entries) {
+        const entryStart = normalizeDateTime(
+            checkDateTime,
+            entry.startDateString
+        );
+        const entryEnd = normalizeDateTime(checkDateTime, entry.endDateString);
+
+        // Check if checkDateTime is within any booked interval
+        if (
+            isWithinInterval(checkDateTime, {
+                start: entryStart,
+                end: entryEnd,
+            })
+        ) {
+            isAvailableNow = false;
+            break;
+        }
+    }
+
+    if (isAvailableNow) {
+        console.log("Room is available right now.");
+    } else {
+        console.log("Room is not available right now.");
+    }
+}
+interface ScrapeRoomRequestBody {
+    roomName: string;
+}
+
+// Endpoint to scrape a specific room's timetable
+app.post("/scrape-room", async (req, res) => {
+    const { roomName } = req.body as ScrapeRoomRequestBody;
+
+    console.log(
+        "REQUEST AT /scrape-room",
+        req.body,
+        roomName,
+        new Date().toISOString()
+    );
+
+    if (!roomName) {
+        return res
+            .status(400)
+            .send({ error: "Missing roomName in request body." });
+    }
+
+    let rooms: Room[] = [];
+
+    // read rooms from csv
+    await readRoomsFromCSV(rooms, "./out/rooms_grouped.csv");
+
+    // find the room url from the rooms array
+    const room = rooms.find((room) => room.name === roomName);
+
+    if (!room) {
+        return res.status(404).send({ error: "Room not found." });
+    }
+
+    // get the room url from the rooms array
+    try {
+        const scrapeResult = await scrapeRoomTimeTable(room?.url, room?.name);
+        res.json(scrapeResult);
+    } catch (error) {
+        console.error(error);
+        res.status(500).send({ error: "Failed to scrape room timetable." });
+    }
+});
+
+app.post("/is-room-free", async (req, res) => {
+    const { roomName } = req.body as ScrapeRoomRequestBody;
+
+    console.log(
+        "REQUEST AT /find-free-time",
+        req.body,
+        roomName,
+        new Date().toISOString()
+    );
+
+    if (!roomName) {
+        return res
+            .status(400)
+            .send({ error: "Missing roomName in request body." });
+    }
+
+    let rooms: Room[] = [];
+
+    // read rooms from csv
+    await readRoomsFromCSV(rooms, "./out/rooms_grouped.csv");
+
+    // find the room url from the rooms array
+    const room = rooms.find((room) => room.name === roomName);
+
+    if (!room) {
+        return res.status(404).send({ error: "Room not found." });
+    }
+
+    // get the room url from the rooms array
+    try {
+        const scrapeResult = await scrapeRoomTimeTable(room?.url, room?.name);
+
+        const testDate = new Date("2024-03-05T10:30:00Z");
+        const out = findRoomAvailability(scrapeResult, testDate);
+
+        res.json(out);
+    } catch (error) {
+        console.error(error);
+        res.status(500).send({ error: "Failed to scrape room timetable." });
+    }
+});
+
+app.listen(port, () => {
+    console.log(`Server running at http://localhost:${port}`);
+});

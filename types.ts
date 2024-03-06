@@ -11,3 +11,16 @@ interface Room {
     name: string;
     url: string;
 }
+
+interface TimetableEntry {
+    topIdx: number;
+    slotInDay: number;
+    time: string;
+    module: string;
+    lecturer: string;
+    group: string;
+    roomName: string;
+    day: string;
+    startDateString: string;
+    endDateString: string;
+}
