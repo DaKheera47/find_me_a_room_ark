@@ -24,3 +24,7 @@ interface TimetableEntry {
     startDateString: string;
     endDateString: string;
 }
+
+interface ScrapeRoomRequestBody {
+    roomName: string;
+}
