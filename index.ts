@@ -241,6 +241,10 @@ const main = async () => {
     for (const room of rooms) {
         console.log(`Scraping ${room.name}... (${room.url})`);
         const scrapeResult = await scrapeRoomTimeTable(room.url, room.name);
+        // const scrapeResult = await scrapeRoomTimeTable(
+        //     "https://apps.uclan.ac.uk/MvCRoomTimetable/CM/CM034",
+        //     "CM034"
+        // );
         console.log(scrapeResult);
     }
 
