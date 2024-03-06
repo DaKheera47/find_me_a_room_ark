@@ -5,6 +5,7 @@ import { createObjectCsvWriter } from "csv-writer";
 
 const buildings: Building[] = [];
 const roomsByBuilding: { [key: string]: Room[] } = {};
+const VALID_EVENT_CLASSNAMES = ["scan_open", "TimeTableEvent"];
 
 const readBuildingsFromCSV = async (filePath: string): Promise<void> => {
     return new Promise((resolve, reject) => {
@@ -28,7 +29,7 @@ const readBuildingsFromCSV = async (filePath: string): Promise<void> => {
     });
 };
 
-const scrapeData = async () => {
+const getRoomLinks = async () => {
     const browser = await puppeteer.launch();
     const page = await browser.newPage();
     await page.goto("https://apps.uclan.ac.uk/MvCRoomTimetable/", {
@@ -86,6 +87,65 @@ const scrapeData = async () => {
     await browser.close();
 };
 
+async function scrapeRoomTimeTable(roomUrl: string): Promise<void> {
+    const browser = await puppeteer.launch({ headless: true });
+    const page = await browser.newPage();
+
+    await page.goto(roomUrl);
+
+    const rows = await page.$$eval(".TimeTableTable tr", (trs) =>
+        trs.slice(1).map((tr) => {
+            return Array.from(tr.querySelectorAll("td"), (td) => {
+                // First, replace <br> tags with \n
+                const innerHtmlWithNewLines = td.innerHTML.replace(
+                    /<br\s*\/?>/gi,
+                    "\n"
+                );
+                // Then, create a temporary div element and set its innerHTML to the modified HTML
+                const tempDiv = document.createElement("div");
+                tempDiv.innerHTML = innerHtmlWithNewLines;
+                // Finally, extract the textContent, which will not contain any HTML tags
+                const text = tempDiv.textContent || tempDiv.innerText || "";
+                return {
+                    text: text,
+                    className: td.className,
+                };
+            }).slice(1);
+        })
+    );
+
+    rows.forEach((row, rowIdx) => {
+        row.forEach((column, colIdx) => {
+            if (VALID_EVENT_CLASSNAMES.includes(column.className)) {
+                const columnText = column.text;
+                if (columnText) {
+                    // Now, 'text' has \n for <br> and no HTML tags
+                    const splitText = columnText.split("\n");
+
+                    const time = splitText[0];
+                    const module = splitText[1];
+                    const lecturer = splitText[2];
+                    const group = splitText[3];
+
+                    const topIdx = rowIdx + 1;
+                    const slotInDay = colIdx + 1;
+
+                    console.log({
+                        topIdx,
+                        slotInDay,
+                        time,
+                        module,
+                        lecturer,
+                        group,
+                    });
+                }
+            }
+        });
+    });
+
+    await browser.close();
+}
+
 const writeRoomsToCSV = async (filePath: string) => {
     const csvWriter = createObjectCsvWriter({
         path: filePath,
@@ -107,9 +167,10 @@ const writeRoomsToCSV = async (filePath: string) => {
 };
 
 const main = async () => {
-    await readBuildingsFromCSV("./static/preston_buildings.csv");
-    await scrapeData();
-    await writeRoomsToCSV("./out/rooms_grouped.csv");
+    // await readBuildingsFromCSV("./static/preston_buildings.csv");
+    // await getRoomLinks();
+    // await writeRoomsToCSV("./out/rooms_grouped.csv");
+    scrapeRoomTimeTable("http://apps.uclan.ac.uk/MvCRoomTimetable/CM/CM234");
 };
 
 main().catch(console.error);
