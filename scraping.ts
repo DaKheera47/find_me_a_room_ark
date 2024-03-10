@@ -130,7 +130,10 @@ const getRoomLinks = async () => {
     return roomsByBuilding;
 };
 
-async function scrapeRoomTimeTable(roomUrl: string, roomName: string) {
+async function scrapeRoomTimeTable(
+    roomUrl: string,
+    roomName: string
+): Promise<TimetableEntry[]> {
     const browser = await puppeteer.launch({ headless: true });
     const page = await browser.newPage();
     let output: any = [];
