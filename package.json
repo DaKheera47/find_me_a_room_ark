@@ -7,7 +7,8 @@
     "build": "tsc --outDir dist && copyfiles -u 1 ./static/**/* ./dist/static/",
     "dev": "npm run build && node ./dist/index.js",
     "test": "npm run build && node ./dist/test.js",
-    "start": "npm run build && node ./dist/index.js"
+    "start": "npm run build && node ./dist/index.js",
+    "heroku-postbuild": "mkdir ./.cache && mv /app/.cache/puppeteer ./.cache"
   },
   "keywords": [],
   "author": "",
