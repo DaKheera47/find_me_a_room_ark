@@ -42,8 +42,8 @@ const readBuildingsFromCSV = async (filePath: string): Promise<Building[]> => {
 const readRoomsFromCSV = async (
     outArr: Room[],
     filePath: string
-): Promise<Room[]> => {
-    const rooms: Room[] = [];
+): Promise<Building[]> => {
+    const rooms: Building[] = [];
 
     return new Promise((resolve, reject) => {
         createReadStream(filePath)

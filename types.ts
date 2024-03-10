@@ -1,15 +1,37 @@
+type BuildingCode =
+    | "AB"
+    | "AL"
+    | "BB"
+    | "CB"
+    | "CM"
+    | "DB"
+    | "ER"
+    | "EB"
+    | "EIC"
+    | "FB"
+    | "GR"
+    | "HR"
+    | "HA"
+    | "HB"
+    | "KM"
+    | "LE"
+    | "LH"
+    | "MB"
+    | "ME"
+    | "SU"
+    | "VE"
+    | "VB"
+    | "WB"
+    | "33ES"
+    | "LIB"
+    | "53";
+
 interface Building {
     name: string;
     latitude: number;
     longitude: number;
     address: string;
-    code: string;
-}
-
-interface Room {
-    buildingCode: string;
-    name: string;
-    url: string;
+    code: BuildingCode;
 }
 
 interface TimetableEntry {
@@ -27,4 +49,10 @@ interface TimetableEntry {
 
 interface ScrapeRoomRequestBody {
     roomName: string;
+}
+
+interface Room {
+    buildingCode: BuildingCode;
+    name: string;
+    url: string;
 }
