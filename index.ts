@@ -6,7 +6,7 @@ import getAllRoomInfoRouter from "./routes/get-all-room-info";
 import getAvailableRoomsInBuildingRouter from "./routes/get-available-rooms-in-building";
 
 const app = express();
-const port = 3000; // The port on which the server will run
+const port = process.env.PORT || 3000;
 
 app.use(cors());
 

@@ -6,7 +6,8 @@
   "scripts": {
     "build": "tsc --outDir dist && copyfiles -u 1 ./static/**/* ./dist/static/",
     "dev": "npm run build && node ./dist/index.js",
-    "test": "npm run build && node ./dist/test.js"
+    "test": "npm run build && node ./dist/test.js",
+    "start": "npm run build && node ./dist/index.js"
   },
   "keywords": [],
   "author": "",
