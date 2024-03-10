@@ -28,5 +28,9 @@
     "ts-node": "^10.9.2",
     "typescript": "^5.3.3"
   },
-  "devDependencies": {}
+  "devDependencies": {},
+  "engines": {
+    "node": "^20.9.0",
+    "npm": "^10.1.0"
+  }
 }

@@ -67,7 +67,9 @@ const readRoomsFromCSV = async (
 const getRoomLinks = async () => {
     const roomsByBuilding: { [key: string]: Room[] } = {};
 
-    const browser = await puppeteer.launch();
+    const browser = await puppeteer.launch({
+        args: ["--no-sandbox", "--disable-setuid-sandbox"], // Add these arguments
+    });
     const page = await browser.newPage();
     await page.goto("https://apps.uclan.ac.uk/MvCRoomTimetable/", {
         waitUntil: "domcontentloaded",
@@ -134,7 +136,9 @@ async function scrapeRoomTimeTable(
     roomUrl: string,
     roomName: string
 ): Promise<TimetableEntry[]> {
-    const browser = await puppeteer.launch({ headless: true });
+    const browser = await puppeteer.launch({
+        args: ["--no-sandbox", "--disable-setuid-sandbox"], // Add these arguments
+    });
     const page = await browser.newPage();
     let output: any = [];
 
