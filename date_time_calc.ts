@@ -16,7 +16,7 @@ function normalizeDateTime(checkDateTime: Date, dateTimeString: string): Date {
 function findRoomAvailability(
     entries: TimetableEntry[],
     checkDateTime: Date
-): void {
+): boolean {
     // Normalize checkDateTime to disregard seconds and milliseconds
     checkDateTime = new Date(
         checkDateTime.getFullYear(),
@@ -49,8 +49,10 @@ function findRoomAvailability(
 
     if (isAvailableNow) {
         console.log("Room is available right now.");
+        return true;
     } else {
         console.log("Room is not available right now.");
+        return false;
     }
 }
 

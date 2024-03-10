@@ -1,14 +1,13 @@
 import { Router } from "express";
-import { findRoomAvailability } from "../date_time_calc";
 import { readRoomsFromCSV, scrapeRoomTimeTable } from "../scraping";
 
-const isRoomFreeRouter = Router();
+const scrapeRoomRouter = Router();
 
-isRoomFreeRouter.post("/is-room-free", async (req, res) => {
+scrapeRoomRouter.post("/get-room-timetable", async (req, res) => {
     const { roomName } = req.body as ScrapeRoomRequestBody;
 
     console.log(
-        "REQUEST AT /is-room-free",
+        "REQUEST AT /get-room-timetable",
         req.body,
         roomName,
         new Date().toISOString()
@@ -35,18 +34,11 @@ isRoomFreeRouter.post("/is-room-free", async (req, res) => {
     // get the room url from the rooms array
     try {
         const scrapeResult = await scrapeRoomTimeTable(room?.url, room?.name);
-        const dateBeingChecked = new Date();
-        const out = findRoomAvailability(scrapeResult, dateBeingChecked);
-
-        res.json({
-            roomName: room.name,
-            isFree: out,
-            dateBeingChecked: dateBeingChecked.toISOString(),
-        });
+        res.json(scrapeResult);
     } catch (error) {
         console.error(error);
         res.status(500).send({ error: "Failed to scrape room timetable." });
     }
 });
 
-export default isRoomFreeRouter;
+export default scrapeRoomRouter;
