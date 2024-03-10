@@ -161,11 +161,27 @@ async function scrapeRoomTimeTable(
         })
     );
 
+    const daysOfWeek = [
+        "Sunday",
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
+    ];
+
     rows.forEach((row, rowIdx) => {
         const dayNameColumn = row[0].text.replace(/\n/g, "");
         const dayFullName = getDayFullNameFromAbbreviation(
             dayNameColumn as DayAbbreviation
         );
+
+        // Skip the row if it's not a day name
+        if (!daysOfWeek.includes(dayFullName)) {
+            return;
+        }
+
         const dayDate = getNextOccurrenceOfDay(dayFullName);
 
         row.forEach((column, colIdx) => {
