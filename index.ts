@@ -13,6 +13,10 @@ app.use(cors());
 // Middleware to parse JSON bodies
 app.use(express.json());
 
+app.get("/", (req, res) => {
+    res.send("Hello World!");
+});
+
 // Endpoint to scrape a specific room's timetable
 app.use(scrapeRoomRouter);
 
