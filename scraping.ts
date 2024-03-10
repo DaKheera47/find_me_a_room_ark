@@ -207,7 +207,6 @@ async function scrapeRoomTimeTable(
                         "yyyy-MM-dd'T'HH:mm:ss"
                     );
 
-                    // Optionally, combine dayDate with endTime for full end dateTime
                     const endDateString = format(
                         parse(endTime, "HH:mm", dayDate),
                         "yyyy-MM-dd'T'HH:mm:ss"

@@ -18,22 +18,22 @@ function findRoomAvailability(
     checkDateTime: Date
 ): boolean {
     // Normalize checkDateTime to disregard seconds and milliseconds
-    checkDateTime = new Date(
-        checkDateTime.getFullYear(),
-        checkDateTime.getMonth(),
-        checkDateTime.getDate(),
-        checkDateTime.getHours(),
-        checkDateTime.getMinutes()
-    );
+    checkDateTime = new Date(checkDateTime);
 
     let isAvailableNow = true;
 
     for (const entry of entries) {
-        const entryStart = normalizeDateTime(
-            checkDateTime,
-            entry.startDateString
-        );
-        const entryEnd = normalizeDateTime(checkDateTime, entry.endDateString);
+        const entryStart = new Date(entry.startDateString);
+        const entryEnd = new Date(entry.endDateString);
+
+        // console.log(
+        //     "checkDateTime",
+        //     checkDateTime,
+        //     "entryStart",
+        //     entryStart,
+        //     "entryEnd",
+        //     entryEnd
+        // );
 
         // Check if checkDateTime is within any booked interval
         if (
