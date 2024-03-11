@@ -9,7 +9,11 @@ import {
     getNextOccurrenceOfDay,
 } from "./utils";
 
-const VALID_EVENT_CLASSNAMES = ["scan_open", "TimeTableEvent"];
+const VALID_EVENT_CLASSNAMES = [
+    "scan_open",
+    "TimeTableEvent",
+    "TimeTableCurrentEvent",
+];
 const DAY_NAME_COLUMN_CLASSNAMES = [
     "TimeTableRowHeader",
     "TimeTableCurrentRowHeader",
