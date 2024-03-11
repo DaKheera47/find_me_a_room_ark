@@ -1,4 +1,4 @@
-import { startOfWeek, add, eachDayOfInterval, format, addDays } from "date-fns";
+import { addDays, startOfToday } from "date-fns";
 
 export type DayAbbreviation =
     | "Mon"
@@ -22,11 +22,8 @@ export const getDayFullNameFromAbbreviation = (abbrev: DayAbbreviation) => {
 
     return dayAbbreviationsToFull[abbrev];
 };
-
 export function getNextOccurrenceOfDay(dayName: string): Date {
-    const today = new Date();
-    const todayDayOfWeek = today.getDay(); // Sunday = 0, Monday = 1, ..., Saturday = 6
-    const targetDayOfWeek = [
+    const daysOfWeek = [
         "Sunday",
         "Monday",
         "Tuesday",
@@ -34,19 +31,23 @@ export function getNextOccurrenceOfDay(dayName: string): Date {
         "Thursday",
         "Friday",
         "Saturday",
-    ].indexOf(dayName);
+    ];
+    const today = startOfToday();
+    const todayDayOfWeek = today.getDay();
+    const targetDayOfWeek = daysOfWeek.indexOf(dayName);
 
-    if (targetDayOfWeek < 0) {
+    if (targetDayOfWeek === -1) {
         throw new Error("Invalid day name");
     }
 
-    // Calculate the difference between today and the next occurrence of the target day
-    let daysUntilNextOccurrence = targetDayOfWeek - todayDayOfWeek;
-    if (daysUntilNextOccurrence <= 0) {
-        // If today is the target day or past it, adjust to next week
-        daysUntilNextOccurrence += 7;
+    let daysToAdd = targetDayOfWeek - todayDayOfWeek;
+    if (daysToAdd < 0) {
+        // Target day is in the next week
+        daysToAdd += 7;
+    } else if (daysToAdd === 0) {
+        // Today matches the target day; return today's date
+        return today;
     }
 
-    const nextOccurrence = addDays(today, daysUntilNextOccurrence);
-    return nextOccurrence;
+    return addDays(today, daysToAdd);
 }
