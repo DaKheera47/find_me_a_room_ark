@@ -1,0 +1,13 @@
+services:
+  free-room-api:
+    build: .
+    container_name: free-room-api
+    ports:
+      - "8072:8072"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      NODE_ENV: development
+    command: npm run dev
+    restart: unless-stopped

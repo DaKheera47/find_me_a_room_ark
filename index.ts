@@ -6,12 +6,16 @@ import getAllRoomInfoRouter from "./routes/get-all-room-info";
 import getAvailableRoomsInBuildingRouter from "./routes/get-available-rooms-in-building";
 
 const app = express();
-const port = 3000; // The port on which the server will run
+const port = 8072; // The port on which the server will run
 
 app.use(cors());
 
 // Middleware to parse JSON bodies
 app.use(express.json());
+
+app.get("/", (req, res) => {
+    res.send("Welcome to the Room Timetable API!");
+});
 
 // Endpoint to scrape a specific room's timetable
 app.use(scrapeRoomRouter);
