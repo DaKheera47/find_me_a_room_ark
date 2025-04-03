@@ -9,6 +9,7 @@ const app = express();
 const port = process.env.PORT || 8072;
 
 app.use(cors());
+process.setMaxListeners(20); // Or higher, calculate based on max expected parallelism
 
 // Middleware to parse JSON bodies
 app.use(express.json());
