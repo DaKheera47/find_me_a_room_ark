@@ -1,13 +1,20 @@
 services:
   free-room-api:
-    build: .
+    build: . # Still builds your Dockerfile, which now uses the official base
     container_name: free-room-api
     ports:
       - "8072:8072"
     volumes:
+      # Keep volumes for development hot-reloading if needed
       - .:/app
+      # Exclude node_modules from host volume mapping if you install inside container
       - /app/node_modules
     environment:
-      NODE_ENV: development
-    command: npm run dev
-    restart: unless-stopped
+      NODE_ENV: development # Or production
+    # Add init process and capabilities required by the official image
+    init: true
+    cap_add:
+      - SYS_ADMIN
+    # command: npm run dev # Keep using this for dev if you want ts-node/nodemon
+                          # Remove it to use the CMD from Dockerfile for production
+    restart: always # Optional

@@ -2,6 +2,7 @@ import { parse as parseCSV } from "csv-parse";
 import { createObjectCsvWriter } from "csv-writer";
 import { format, parse } from "date-fns";
 import { createReadStream } from "fs";
+import locateChrome from "locate-chrome";
 import puppeteer from "puppeteer";
 import {
     DayAbbreviation,
@@ -70,8 +71,10 @@ const readRoomsFromCSV = async (
 
 const getRoomLinks = async () => {
     const roomsByBuilding: { [key: string]: Room[] } = {};
+    const executablePath: string = await new Promise(resolve => locateChrome((arg: any) => resolve(arg))) || '';
 
     const browser = await puppeteer.launch({
+        executablePath,
         args: ["--no-sandbox", "--disable-setuid-sandbox"], // Add these arguments
     });
     const page = await browser.newPage();
@@ -140,7 +143,9 @@ async function scrapeRoomTimeTable(
     roomUrl: string,
     roomName: string
 ): Promise<TimetableEntry[]> {
+    const executablePath: string = await new Promise(resolve => locateChrome((arg: any) => resolve(arg))) || '';
     const browser = await puppeteer.launch({
+        executablePath,
         args: ["--no-sandbox", "--disable-setuid-sandbox"], // Add these arguments
     });
     const page = await browser.newPage();
