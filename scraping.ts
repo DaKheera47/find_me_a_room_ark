@@ -9,7 +9,11 @@ import {
     getNextOccurrenceOfDay,
 } from "./utils";
 
-const VALID_EVENT_CLASSNAMES = ["scan_open", "TimeTableEvent"];
+const VALID_EVENT_CLASSNAMES = [
+    "scan_open",
+    "TimeTableEvent",
+    "TimeTableCurrentEvent",
+];
 const DAY_NAME_COLUMN_CLASSNAMES = [
     "TimeTableRowHeader",
     "TimeTableCurrentRowHeader",
@@ -67,7 +71,9 @@ const readRoomsFromCSV = async (
 const getRoomLinks = async () => {
     const roomsByBuilding: { [key: string]: Room[] } = {};
 
-    const browser = await puppeteer.launch();
+    const browser = await puppeteer.launch({
+        args: ["--no-sandbox", "--disable-setuid-sandbox"], // Add these arguments
+    });
     const page = await browser.newPage();
     await page.goto("https://apps.uclan.ac.uk/MvCRoomTimetable/", {
         waitUntil: "domcontentloaded",
@@ -134,7 +140,9 @@ async function scrapeRoomTimeTable(
     roomUrl: string,
     roomName: string
 ): Promise<TimetableEntry[]> {
-    const browser = await puppeteer.launch({ headless: true });
+    const browser = await puppeteer.launch({
+        args: ["--no-sandbox", "--disable-setuid-sandbox"], // Add these arguments
+    });
     const page = await browser.newPage();
     let output: any = [];
 
@@ -161,11 +169,27 @@ async function scrapeRoomTimeTable(
         })
     );
 
+    const daysOfWeek = [
+        "Sunday",
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
+    ];
+
     rows.forEach((row, rowIdx) => {
         const dayNameColumn = row[0].text.replace(/\n/g, "");
         const dayFullName = getDayFullNameFromAbbreviation(
             dayNameColumn as DayAbbreviation
         );
+
+        // Skip the row if it's not a day name
+        if (!daysOfWeek.includes(dayFullName)) {
+            return;
+        }
+
         const dayDate = getNextOccurrenceOfDay(dayFullName);
 
         row.forEach((column, colIdx) => {
@@ -191,7 +215,6 @@ async function scrapeRoomTimeTable(
                         "yyyy-MM-dd'T'HH:mm:ss"
                     );
 
-                    // Optionally, combine dayDate with endTime for full end dateTime
                     const endDateString = format(
                         parse(endTime, "HH:mm", dayDate),
                         "yyyy-MM-dd'T'HH:mm:ss"

@@ -1,4 +1,4 @@
-import { startOfWeek, add, eachDayOfInterval, format } from "date-fns";
+import { addDays, startOfToday } from "date-fns";
 
 export type DayAbbreviation =
     | "Mon"
@@ -22,12 +22,32 @@ export const getDayFullNameFromAbbreviation = (abbrev: DayAbbreviation) => {
 
     return dayAbbreviationsToFull[abbrev];
 };
-
 export function getNextOccurrenceOfDay(dayName: string): Date {
-    const today = new Date();
-    const start = startOfWeek(today, { weekStartsOn: 1 }); // Adjust weekStartsOn based on your locale if needed
-    const end = add(start, { days: 6 });
-    const days = eachDayOfInterval({ start, end });
-    const nextDay = days.find((d) => format(d, "EEEE") === dayName);
-    return nextDay || today; // Fallback to today if not found, adjust as needed
+    const daysOfWeek = [
+        "Sunday",
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
+    ];
+    const today = startOfToday();
+    const todayDayOfWeek = today.getDay();
+    const targetDayOfWeek = daysOfWeek.indexOf(dayName);
+
+    if (targetDayOfWeek === -1) {
+        throw new Error("Invalid day name");
+    }
+
+    let daysToAdd = targetDayOfWeek - todayDayOfWeek;
+    if (daysToAdd < 0) {
+        // Target day is in the next week
+        daysToAdd += 7;
+    } else if (daysToAdd === 0) {
+        // Today matches the target day; return today's date
+        return today;
+    }
+
+    return addDays(today, daysToAdd);
 }
