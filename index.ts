@@ -4,6 +4,8 @@ import isRoomFreeRouter from "./routes/is-room-free";
 import scrapeRoomRouter from "./routes/get-room-timetable";
 import getAllRoomInfoRouter from "./routes/get-all-room-info";
 import getAvailableRoomsInBuildingRouter from "./routes/get-available-rooms-in-building";
+import healthRouter from "./routes/health";
+import findRoomsByDurationRouter from "./routes/find-rooms-by-duration";
 
 const app = express();
 const port = process.env.PORT || 8072;
@@ -26,6 +28,10 @@ app.use(isRoomFreeRouter);
 app.use(getAllRoomInfoRouter);
 
 app.use(getAvailableRoomsInBuildingRouter);
+
+app.use(healthRouter);
+
+app.use(findRoomsByDurationRouter);
 
 app.listen(port, () => {
     console.log(`Server running at http://localhost:${port}`);
