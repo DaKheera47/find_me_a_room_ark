@@ -4,10 +4,9 @@ services:
     container_name: free-room-api
     ports:
       - "8072:8072"
-    volumes:
-      # Use named volume to preserve node_modules from container
-      - .:/app
-      - node_modules_volume:/app/node_modules
+    # volumes:
+      # Removed volume mappings to prevent overriding built files
+      # Use docker-compose down && docker-compose build --no-cache && docker-compose up -d for deployments
     environment:
       NODE_ENV: development # Or production
     # Add init process and capabilities required by the official image
@@ -18,5 +17,5 @@ services:
                           # Remove it to use the CMD from Dockerfile for production
     restart: unless-stopped # Optional
 
-volumes:
-  node_modules_volume:
+# volumes:
+  # node_modules_volume: # No longer needed since we removed volume mappings
