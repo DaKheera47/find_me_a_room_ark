@@ -5,10 +5,9 @@ services:
     ports:
       - "8072:8072"
     volumes:
-      # Keep volumes for development hot-reloading if needed
+      # Use named volume to preserve node_modules from container
       - .:/app
-      # Exclude node_modules from host volume mapping if you install inside container
-      - /app/node_modules
+      - node_modules_volume:/app/node_modules
     environment:
       NODE_ENV: development # Or production
     # Add init process and capabilities required by the official image
@@ -17,4 +16,7 @@ services:
       - SYS_ADMIN
     # command: npm run dev # Keep using this for dev if you want ts-node/nodemon
                           # Remove it to use the CMD from Dockerfile for production
-    restart: always # Optional
+    restart: unless-stopped # Optional
+
+volumes:
+  node_modules_volume:
