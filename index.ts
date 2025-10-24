@@ -6,6 +6,7 @@ import getAllRoomInfoRouter from "./routes/get-all-room-info";
 import getAvailableRoomsInBuildingRouter from "./routes/get-available-rooms-in-building";
 import healthRouter from "./routes/health";
 import findRoomsByDurationRouter from "./routes/find-rooms-by-duration";
+import lecturersRouter from "./routes/lecturers";
 
 const app = express();
 const port = process.env.PORT || 8072;
@@ -32,6 +33,8 @@ app.use(getAvailableRoomsInBuildingRouter);
 app.use(healthRouter);
 
 app.use(findRoomsByDurationRouter);
+
+app.use(lecturersRouter);
 
 app.listen(port, () => {
     console.log(`Server running at http://localhost:${port}`);
