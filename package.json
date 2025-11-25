@@ -6,7 +6,8 @@
   "scripts": {
     "build": "tsc --outDir dist && copyfiles -u 1 ./static/**/* ./dist/static/",
     "dev": "npm run build && node ./dist/index.js",
-    "test": "npm run build && node ./dist/test.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "start": "npm run build && node ./dist/index.js",
     "scrape": "npm run build && node ./dist/scripts/overnight-scrape.js",
     "heroku-postbuild": "node node_modules/puppeteer/install.mjs && mkdir -p ./.cache && mv /app/.cache/puppeteer ./.cache"
@@ -33,6 +34,9 @@
     "puppeteer": "^22.4.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.3.3"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.0"
   },
   "engines": {
     "node": "^20.9.0",
