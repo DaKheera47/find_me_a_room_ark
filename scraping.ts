@@ -62,7 +62,7 @@ const readRoomsFromCSV = async (
 
     return new Promise((resolve, reject) => {
         createReadStream(filePath)
-            .pipe(parseCSV({ delimiter: "," }))
+            .pipe(parseCSV({ delimiter: ",", from_line: 2 })) // Skip header row
             .on("data", (row) => {
                 outArr.push({
                     buildingCode: row[0].trim(),
@@ -153,7 +153,7 @@ async function scrapeRoomTimeTable(
     roomUrl: string,
     roomName: string
 ): Promise<TimetableEntry[]> {
-    console.log(`Fetching timetable for ${roomName}... (${roomUrl})`);
+    // console.log(`Fetching timetable for ${roomName}... (${roomUrl})`);
     let output: TimetableEntry[] = [];
 
     try {
@@ -279,7 +279,7 @@ async function scrapeRoomTimeTable(
         // throw error;
     }
 
-    console.log(`Finished scraping for ${roomName}. Found ${output.length} entries.`);
+    // console.log(`Finished scraping for ${roomName}. Found ${output.length} entries.`);
     return output;
 }
 const writeRoomsToCSV = async (filePath: string) => {

@@ -6,7 +6,7 @@ import getAllRoomInfoRouter from "./routes/get-all-room-info";
 import getAvailableRoomsInBuildingRouter from "./routes/get-available-rooms-in-building";
 import healthRouter from "./routes/health";
 import findRoomsByDurationRouter from "./routes/find-rooms-by-duration";
-import lecturersRouter from "./routes/lecturers";
+import lecturersRouter from "./routes/lecturers-db";
 
 const app = express();
 const port = process.env.PORT || 8072;
