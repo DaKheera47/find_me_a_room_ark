@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { getDatabase } from "../scripts/db";
+import { cleanBrackets } from "../utils";
 
 const modulesRouter = Router();
 
@@ -147,7 +148,7 @@ modulesRouter.get("/modules/:moduleCode", async (req, res) => {
             time: e.time,
             module: e.module,
             lecturer: e.lecturer || "",
-            group: e.group || "",
+            group: cleanBrackets(e.group) || "",
             roomName: e.roomName,
             day: e.day,
             startDateString: e.startDateString,
@@ -158,7 +159,7 @@ modulesRouter.get("/modules/:moduleCode", async (req, res) => {
         const uniqueLecturers = [...new Set(events.map(e => e.lecturer).filter(Boolean))];
         
         // Get unique session types
-        const uniqueSessionTypes = [...new Set(events.map(e => e.group).filter(Boolean))];
+        const uniqueSessionTypes = [...new Set(events.map(e => cleanBrackets(e.group)).filter(Boolean))];
 
         res.json({
             module: {
