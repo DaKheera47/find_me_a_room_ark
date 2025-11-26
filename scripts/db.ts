@@ -3,7 +3,8 @@ import { existsSync, mkdirSync, renameSync } from "fs";
 import { format } from "date-fns";
 import path from "path";
 
-const DATA_DIR = path.join(__dirname, "..", "data");
+// Use process.cwd() for consistent path resolution regardless of compiled/source execution
+const DATA_DIR = path.join(process.cwd(), "data");
 const DB_PATH = path.join(DATA_DIR, "events.db");
 
 // Ensure data directory exists

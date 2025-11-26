@@ -68,15 +68,43 @@ lecturersRouter.get("/lecturers/:lecturerName", async (req, res) => {
             });
         }
 
-        // Normalize the lookup name
+        // Try multiple lookup strategies
+        let lecturer: { id: number; name: string } | undefined;
+
+        // Strategy 1: Exact match on normalized name
         const cleanedCandidates = extractLecturerNames(decodedName);
         const lookupName = cleanedCandidates[0] ?? normaliseLecturerName(decodedName);
         const lookupKey = lookupName.toLowerCase();
 
-        // Find lecturer
-        const lecturer = db
+        lecturer = db
             .prepare(`SELECT id, name FROM lecturers WHERE name_lower = ?`)
             .get(lookupKey) as { id: number; name: string } | undefined;
+
+        // Strategy 2: If input is "firstname lastname", try "lastname, firstname"
+        if (!lecturer) {
+            const parts = decodedName.trim().split(/\s+/);
+            if (parts.length === 2) {
+                const [first, last] = parts;
+                const flippedKey = `${last}, ${first}`.toLowerCase();
+                lecturer = db
+                    .prepare(`SELECT id, name FROM lecturers WHERE name_lower = ?`)
+                    .get(flippedKey) as { id: number; name: string } | undefined;
+            }
+        }
+
+        // Strategy 3: Fuzzy match - search for names containing all parts
+        if (!lecturer) {
+            const searchTerms = decodedName.toLowerCase().split(/\s+/).filter(Boolean);
+            if (searchTerms.length > 0) {
+                // Build a query that matches all terms anywhere in the name
+                const conditions = searchTerms.map(() => `name_lower LIKE ?`).join(" AND ");
+                const params = searchTerms.map(term => `%${term}%`);
+                
+                lecturer = db
+                    .prepare(`SELECT id, name FROM lecturers WHERE ${conditions} LIMIT 1`)
+                    .get(...params) as { id: number; name: string } | undefined;
+            }
+        }
 
         if (!lecturer) {
             db.close();

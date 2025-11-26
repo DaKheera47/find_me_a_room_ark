@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { findRoomAvailability } from "../date_time_calc";
-import { readRoomsFromCSV, scrapeRoomTimeTable } from "../scraping";
+import { getRoomTimetable, isDatabaseReady } from "../scripts/db-queries";
 
 const isRoomFreeRouter = Router();
 
@@ -20,32 +20,25 @@ isRoomFreeRouter.post("/is-room-free", async (req, res) => {
             .send({ error: "Missing roomName in request body." });
     }
 
-    let rooms: Room[] = [];
-
-    // read rooms from csv
-    await readRoomsFromCSV(rooms, "./out/rooms_grouped.csv");
-
-    // find the room url from the rooms array
-    const room = rooms.find((room) => room.name === roomName);
-
-    if (!room) {
-        return res.status(404).send({ error: "Room not found." });
+    if (!isDatabaseReady()) {
+        return res
+            .status(503)
+            .send({ error: "Database not ready. Run overnight scrape first." });
     }
 
-    // get the room url from the rooms array
     try {
-        const scrapeResult = await scrapeRoomTimeTable(room?.url, room?.name);
+        const timetable = getRoomTimetable(roomName);
         const dateBeingChecked = new Date();
-        const out = findRoomAvailability(scrapeResult, dateBeingChecked);
+        const out = findRoomAvailability(timetable, dateBeingChecked);
 
         res.json({
-            roomName: room.name,
+            roomName: roomName,
             isFree: out,
             dateBeingChecked: dateBeingChecked.toISOString(),
         });
     } catch (error) {
         console.error(error);
-        res.status(500).send({ error: "Failed to scrape room timetable." });
+        res.status(500).send({ error: "Failed to retrieve room timetable." });
     }
 });
 

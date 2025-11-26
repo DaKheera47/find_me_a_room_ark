@@ -2,11 +2,9 @@ import { Router } from "express";
 import {
     readBuildingsFromCSV,
     readRoomsFromCSV,
-    scrapeRoomTimeTable,
-    // Assuming TimetableEntry and Room types are exported or defined elsewhere
 } from "../scraping";
 import { findRoomAvailability } from "../date_time_calc";
-// Assuming BuildingCode, Room, TimetableEntry types are defined/imported
+import { getMultipleRoomTimetables, isDatabaseReady } from "../scripts/db-queries";
 
 const getAvailableRoomsInBuildingRouter = Router();
 
@@ -19,16 +17,13 @@ type RoomWithTimetable = {
 getAvailableRoomsInBuildingRouter.post(
     "/get-available-rooms-in-building",
     async (req, res) => {
-        console.log("what")
         // Add a top-level try-catch for general error handling
         try {
-            console.log("the")
-            const requestStartTime = Date.now(); // Start time for the request
+            const requestStartTime = Date.now();
             const { buildingCode, floorToFind } = req.body as {
                 buildingCode: BuildingCode;
                 floorToFind: number;
             };
-            console.log("is")
 
             console.log(
                 `REQUEST AT /get-available-rooms-in-building - Building: ${buildingCode}, Floor: ${floorToFind}, Time: ${new Date().toISOString()}`
@@ -47,8 +42,13 @@ getAvailableRoomsInBuildingRouter.post(
                     .send({ error: "Missing or invalid floorToFind in request body. It must be a number." });
             }
 
+            if (!isDatabaseReady()) {
+                return res
+                    .status(503)
+                    .send({ error: "Database not ready. Run overnight scrape first." });
+            }
+
             // --- Read Building Data ---
-            // Consider making CSV paths configurable or relative to project root
             const buildings = await readBuildingsFromCSV(
                 "./static/preston_buildings.csv"
             );
@@ -62,9 +62,7 @@ getAvailableRoomsInBuildingRouter.post(
 
             // --- Read and Filter Room Data ---
             let allRooms: Room[] = [];
-            // Assuming readRoomsFromCSV modifies the passed array. If it returns a new array:
-            // const allRooms = await readRoomsFromCSV("./out/rooms_grouped.csv");
-            await readRoomsFromCSV(allRooms, "./out/rooms_grouped.csv"); // Adjust if needed based on function signature
+            await readRoomsFromCSV(allRooms, "./out/rooms_grouped.csv");
 
             // Filter rooms by building code first
             const roomsInBuilding = allRooms.filter((room) => room.buildingCode === buildingCode);
@@ -88,74 +86,39 @@ getAvailableRoomsInBuildingRouter.post(
 
             if (roomsOnFloor.length === 0) {
                 console.log(`No rooms found for building ${buildingCode} on floor ${floorToFind}.`);
-                // It's successful in terms of processing, just no results found.
                 return res.status(200).send([]);
             }
 
-            console.log(`Found ${roomsOnFloor.length} rooms matching criteria. Starting parallel scraping...`);
+            console.log(`Found ${roomsOnFloor.length} rooms matching criteria. Fetching from database...`);
 
-            // --- Parallel Scraping ---
-            // Create an array of promises, one for each room scrape
-            const scrapePromises = roomsOnFloor.map(room =>
-                scrapeRoomTimeTable(room.url, room.name)
-                // Optional: Add a .catch here *per promise* if you want to handle
-                // individual scrape errors before Promise.allSettled,
-                // e.g., return a specific marker like null or an empty array.
-                // .catch(err => {
-                //     console.error(`Scraping error for ${room.name}: ${err.message}`);
-                //     return null; // Indicate failure for this specific room
-                // })
-            );
-
-            // Wait for all scraping promises to settle (either resolve or reject)
-            // start time
+            // --- Database Query (instant, no scraping!) ---
             const startTime = Date.now();
-            console.log(`Starting scraping at ${new Date(startTime).toISOString()}`);
-            const results = await Promise.allSettled(scrapePromises);
-            // end time
+            const roomNames = roomsOnFloor.map(r => r.name);
+            const timetableMap = getMultipleRoomTimetables(roomNames);
             const endTime = Date.now();
-            console.log(`Scraping finished at ${new Date(endTime).toISOString()}`);
-            console.log(`Total scraping time: ${(endTime - startTime) / 1000} seconds`);
-
-            console.log(`Scraping finished. Processing ${results.length} results.`);
+            console.log(`Database query time: ${(endTime - startTime)}ms`);
 
             // --- Process Results and Check Availability ---
             const combinedData: RoomWithTimetable[] = [];
-            const now = new Date(); // Get the current time once for consistent checks
+            const now = new Date();
 
-            results.forEach((result, index) => {
-                const room = roomsOnFloor[index]; // Get the corresponding room
+            for (const room of roomsOnFloor) {
+                const timetable = timetableMap.get(room.name) || [];
+                const isRoomAvailable = findRoomAvailability(timetable, now);
 
-                if (result.status === "fulfilled") {
-                    // Check if the result value is not null (if using the per-promise .catch above)
-                    // if (result.value) {
-                    const timetable: TimetableEntry[] = result.value;
-                    const isRoomAvailable = findRoomAvailability(timetable, now);
-
-                    if (isRoomAvailable) {
-                        combinedData.push({
-                            room: room,
-                            timetable: timetable,
-                        });
-                        // console.log(`Room ${room.name} is available.`);
-                    } else {
-                        // console.log(`Room ${room.name} is busy.`);
-                    }
-                   // }
-                } else {
-                    // Log errors for promises that were rejected
-                    console.error(`Failed to fetch timetable for room ${room.name} (${room.url}):`, result.reason?.message || result.reason);
-                    // Decide if you want to include failed rooms in the response somehow,
-                    // maybe with an error flag, or just skip them like here.
+                if (isRoomAvailable) {
+                    combinedData.push({
+                        room: room,
+                        timetable: timetable,
+                    });
                 }
-            });
+            }
 
             console.log(`Found ${combinedData.length} available rooms out of ${roomsOnFloor.length} checked.`);
 
             // --- Send Response ---
-            // total request time
             const requestEndTime = Date.now();
-            console.log(`Total request time: ${(requestEndTime - requestStartTime) / 1000} seconds`);
+            console.log(`Total request time: ${(requestEndTime - requestStartTime)}ms`);
             return res.status(200).send(combinedData);
 
         } catch (error) {

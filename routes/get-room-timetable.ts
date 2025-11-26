@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { readRoomsFromCSV, scrapeRoomTimeTable } from "../scraping";
+import { getRoomTimetable, isDatabaseReady } from "../scripts/db-queries";
 
 const scrapeRoomRouter = Router();
 
@@ -19,25 +19,18 @@ scrapeRoomRouter.post("/get-room-timetable", async (req, res) => {
             .send({ error: "Missing roomName in request body." });
     }
 
-    let rooms: Room[] = [];
-
-    // read rooms from csv
-    await readRoomsFromCSV(rooms, "./out/rooms_grouped.csv");
-
-    // find the room url from the rooms array
-    const room = rooms.find((room) => room.name === roomName);
-
-    if (!room) {
-        return res.status(404).send({ error: "Room not found." });
+    if (!isDatabaseReady()) {
+        return res
+            .status(503)
+            .send({ error: "Database not ready. Run overnight scrape first." });
     }
 
-    // get the room url from the rooms array
     try {
-        const scrapeResult = await scrapeRoomTimeTable(room?.url, room?.name);
-        res.json(scrapeResult);
+        const timetable = getRoomTimetable(roomName);
+        res.json(timetable);
     } catch (error) {
         console.error(error);
-        res.status(500).send({ error: "Failed to scrape room timetable." });
+        res.status(500).send({ error: "Failed to retrieve room timetable." });
     }
 });
 
