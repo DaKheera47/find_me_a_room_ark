@@ -1,10 +1,7 @@
 import { Router } from "express";
-import { isWithinInterval, parseISO, differenceInMinutes } from "date-fns";
-import {
-    readBuildingsFromCSV,
-    readRoomsFromCSV,
-    scrapeRoomTimeTable,
-} from "../scraping";
+import { isWithinInterval, differenceInMinutes } from "date-fns";
+import { readBuildingsFromCSV, readRoomsFromCSV } from "../scraping";
+import { getMultipleRoomTimetables, isDatabaseReady } from "../scripts/db-queries";
 
 const findRoomsByDurationRouter = Router();
 
@@ -76,6 +73,12 @@ findRoomsByDurationRouter.post("/find-rooms-by-duration", async (req, res) => {
                 .json({ error: "Missing buildingCode in request body." });
         }
 
+        if (!isDatabaseReady()) {
+            return res
+                .status(503)
+                .json({ error: "Database not ready. Run overnight scrape first." });
+        }
+
         // Read building data
         const buildings = await readBuildingsFromCSV("./static/preston_buildings.csv");
         const building = buildings.find(b => b.code === buildingCode);
@@ -85,7 +88,7 @@ findRoomsByDurationRouter.post("/find-rooms-by-duration", async (req, res) => {
             return res.status(404).json({ error: `Building with code ${buildingCode} not found.` });
         }
 
-        // Read and filter room data
+        // Read room data to get Room objects
         let allRooms: Room[] = [];
         await readRoomsFromCSV(allRooms, "./out/rooms_grouped.csv");
 
@@ -96,51 +99,40 @@ findRoomsByDurationRouter.post("/find-rooms-by-duration", async (req, res) => {
             return res.status(200).json([]);
         }
 
-        console.log(`Found ${roomsInBuilding.length} rooms in building. Starting parallel scraping...`);
+        console.log(`Found ${roomsInBuilding.length} rooms in building. Fetching from database...`);
 
-        // Parallel scraping
-        const scrapePromises = roomsInBuilding.map(room =>
-            scrapeRoomTimeTable(room.url, room.name)
-        );
-
+        // Get timetables from database (instant, no scraping!)
         const startTime = Date.now();
-        console.log(`Starting scraping at ${new Date(startTime).toISOString()}`);
-        const results = await Promise.allSettled(scrapePromises);
+        const roomNames = roomsInBuilding.map(r => r.name);
+        const timetableMap = getMultipleRoomTimetables(roomNames);
         const endTime = Date.now();
-        console.log(`Scraping finished at ${new Date(endTime).toISOString()}`);
-        console.log(`Total scraping time: ${(endTime - startTime) / 1000} seconds`);
+        console.log(`Database query time: ${(endTime - startTime)}ms`);
 
         // Process results and calculate availability durations
         const roomAvailabilities: RoomAvailability[] = [];
         const now = new Date();
 
-        results.forEach((result, index) => {
-            const room = roomsInBuilding[index];
+        for (const room of roomsInBuilding) {
+            const timetable = timetableMap.get(room.name) || [];
+            const availableMinutes = calculateRoomAvailabilityDuration(timetable, now);
 
-            if (result.status === "fulfilled") {
-                const timetable: TimetableEntry[] = result.value;
-                const availableMinutes = calculateRoomAvailabilityDuration(timetable, now);
+            // Only include rooms available for more than 15 minutes
+            if (availableMinutes > 15) {
+                // Find next booking for additional context
+                const futureBookings = timetable
+                    .map(entry => new Date(entry.startDateString))
+                    .filter(start => start > now)
+                    .sort((a, b) => a.getTime() - b.getTime());
 
-                // Only include rooms available for more than 15 minutes
-                if (availableMinutes > 15) {
-                    // Find next booking for additional context
-                    const futureBookings = timetable
-                        .map(entry => new Date(entry.startDateString))
-                        .filter(start => start > now)
-                        .sort((a, b) => a.getTime() - b.getTime());
-
-                    roomAvailabilities.push({
-                        room: room,
-                        availableMinutes: availableMinutes,
-                        nextBookingStart: futureBookings.length > 0
-                            ? futureBookings[0].toISOString()
-                            : undefined
-                    });
-                }
-            } else {
-                console.error(`Failed to fetch timetable for room ${room.name} (${room.url}):`, result.reason?.message || result.reason);
+                roomAvailabilities.push({
+                    room: room,
+                    availableMinutes: availableMinutes,
+                    nextBookingStart: futureBookings.length > 0
+                        ? futureBookings[0].toISOString()
+                        : undefined
+                });
             }
-        });
+        }
 
         // Sort by available duration (longest first)
         roomAvailabilities.sort((a, b) => b.availableMinutes - a.availableMinutes);
@@ -148,7 +140,7 @@ findRoomsByDurationRouter.post("/find-rooms-by-duration", async (req, res) => {
         console.log(`Found ${roomAvailabilities.length} rooms available for >15 minutes out of ${roomsInBuilding.length} checked.`);
 
         const requestEndTime = Date.now();
-        console.log(`Total request time: ${(requestEndTime - requestStartTime) / 1000} seconds`);
+        console.log(`Total request time: ${(requestEndTime - requestStartTime)}ms`);
 
         return res.status(200).json({
             buildingCode,

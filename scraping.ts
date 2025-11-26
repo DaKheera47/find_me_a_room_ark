@@ -15,6 +15,7 @@ const VALID_EVENT_CLASSNAMES = [
     "scan_open",
     "TimeTableEvent",
     "TimeTableCurrentEvent",
+    "TimeTableClash",
 ];
 const DAY_NAME_COLUMN_CLASSNAMES = [
     "TimeTableRowHeader",
@@ -62,7 +63,7 @@ const readRoomsFromCSV = async (
 
     return new Promise((resolve, reject) => {
         createReadStream(filePath)
-            .pipe(parseCSV({ delimiter: "," }))
+            .pipe(parseCSV({ delimiter: ",", from_line: 2 })) // Skip header row
             .on("data", (row) => {
                 outArr.push({
                     buildingCode: row[0].trim(),
@@ -153,7 +154,7 @@ async function scrapeRoomTimeTable(
     roomUrl: string,
     roomName: string
 ): Promise<TimetableEntry[]> {
-    console.log(`Fetching timetable for ${roomName}... (${roomUrl})`);
+    // console.log(`Fetching timetable for ${roomName}... (${roomUrl})`);
     let output: TimetableEntry[] = [];
 
     try {
@@ -209,63 +210,140 @@ async function scrapeRoomTimeTable(
                 if (VALID_EVENT_CLASSNAMES.includes(className)) {
 
                     // --- Extract Text, handling <br> as newline ---
-                    // Clone to avoid modifying the original structure for subsequent operations if needed elsewhere
                     const tempTd = tdCheerio.clone();
-                    // Replace <br> tags specifically with newline characters within this cell's HTML
                     tempTd.find('br').replaceWith('\n');
-                    // Get the text content, now with newlines where <br> tags were
                     const columnText = tempTd.text().trim();
-                    // Alternative if the above doesn't work well:
-                    // const innerHtml = tdCheerio.html() || '';
-                    // const textWithNewlines = innerHtml.replace(/<br\s*\/?>/gi, '\n');
-                    // const columnText = $(`<div>${textWithNewlines}</div>`).text().trim(); // Use cheerio again to strip remaining tags
 
                     if (columnText) {
-                        const splitText = columnText.split("\n").map(s => s.trim()).filter(Boolean); // Split and clean up parts
-
-                        if (splitText.length >= 4) { // Ensure we have enough parts
-                            const time = splitText[0];
-                            const module = splitText[1];
-                            const lecturer = splitText[2];
-                            const group = splitText[3];
-
-                            // rowIdx from .each is 0-based, original Puppeteer used 1-based 'topIdx'
-                            const topIdx = rowIdx + 1;
-                            // colIdx from .each is 0-based, original Puppeteer used 1-based 'slotInDay' (assuming first col isn't a slot)
-                            const slotInDay = colIdx; // Adjust if col 0 (day name) shouldn't count
-
-                            try {
-                                const [startTime, endTime] = time.split(" - ");
-                                if (!startTime || !endTime) {
-                                     console.warn(`Skipping entry due to invalid time format: "${time}" in ${roomName} on ${dayFullName}`);
-                                     return; // Skip this entry if time format is wrong
+                        // For clash cells, split into multiple event blocks by time pattern
+                        // Each event starts with a time like "10:00 - 13:00"
+                        const isClashCell = className === 'TimeTableClash';
+                        
+                        let eventBlocks: string[][];
+                        
+                        if (isClashCell) {
+                            // Split text into event blocks - each starts with a time pattern
+                            const allLines = columnText.split("\n").map(s => s.trim()).filter(Boolean);
+                            eventBlocks = [];
+                            let currentBlock: string[] = [];
+                            
+                            for (const line of allLines) {
+                                // Skip the "Clashing Events" header line
+                                if (/clashing events/i.test(line)) continue;
+                                
+                                // If this is a time line and we have a current block, save it and start new
+                                if (/^\d{1,2}:\d{2}\s*-\s*\d{1,2}:\d{2}$/.test(line)) {
+                                    if (currentBlock.length > 0) {
+                                        eventBlocks.push(currentBlock);
+                                    }
+                                    currentBlock = [line];
+                                } else if (currentBlock.length > 0) {
+                                    currentBlock.push(line);
                                 }
-
-                                // Combine dayDate with startTime for full start dateTime
-                                const startDate = parse(startTime.trim(), "HH:mm", dayDate);
-                                const endDate = parse(endTime.trim(), "HH:mm", dayDate);
-
-                                const startDateString = format(startDate, "yyyy-MM-dd'T'HH:mm:ss");
-                                const endDateString = format(endDate, "yyyy-MM-dd'T'HH:mm:ss");
-
-
-                                output.push({
-                                    topIdx,
-                                    slotInDay,
-                                    time,
-                                    module,
-                                    lecturer,
-                                    group,
-                                    roomName,
-                                    day: dayFullName,
-                                    startDateString,
-                                    endDateString,
-                                });
-                            } catch (parseError) {
-                                 console.warn(`Skipping entry due to date parsing error for time "${time}" in ${roomName} on ${dayFullName}:`, parseError);
+                            }
+                            // Don't forget the last block
+                            if (currentBlock.length > 0) {
+                                eventBlocks.push(currentBlock);
                             }
                         } else {
-                             console.warn(`Skipping entry due to insufficient data parts after splitting text in ${roomName} on ${dayFullName}:`, columnText);
+                            // Single event - just one block
+                            eventBlocks = [columnText.split("\n").map(s => s.trim()).filter(Boolean)];
+                        }
+                        
+                        // Process each event block
+                        for (const splitText of eventBlocks) {
+                            if (splitText.length < 2) continue; // Need at least time and module
+                            
+                            // Use pattern matching to identify fields
+                            let time: string | null = null;
+                            let module: string | null = null;
+                            let lecturer: string | null = null;
+                            let group: string | null = null;
+
+                            for (const line of splitText) {
+                                // Time pattern: HH:MM - HH:MM
+                                if (!time && /^\d{1,2}:\d{2}\s*-\s*\d{1,2}:\d{2}$/.test(line)) {
+                                    time = line;
+                                    continue;
+                                }
+
+                                // Module pattern: 2-4 letters + 3-5 digits, optionally followed by letter, then separator and name
+                                if (!module && /^[A-Z]{2,4}\d{3,5}[A-Z]?\s*[-–:]/i.test(line)) {
+                                    module = line;
+                                    continue;
+                                }
+
+                                // Group patterns: session types
+                                if (!group && /^(Lecture|Practical|Seminar|Workshop|Tutorial|Lab|Placement|Project|Exam|Assessment|Drop[\s-]?in|Non[\s-]?Teaching)/i.test(line)) {
+                                    group = line;
+                                    continue;
+                                }
+                                if (!group && /\((On\s*Campus|Online|Hybrid)\)\s*$/i.test(line)) {
+                                    group = line;
+                                    continue;
+                                }
+
+                                // Lecturer patterns
+                                if (!lecturer) {
+                                    // Pattern 1: Comma-separated name "LastName, FirstName"
+                                    if (line.includes(',') && 
+                                        /^[A-Za-z'-]+,\s*[A-Za-z'-]+/.test(line) &&
+                                        !/^\d/.test(line) &&
+                                        !/^[A-Z]{2,4}\d{3,5}/i.test(line)) {
+                                        lecturer = line;
+                                        continue;
+                                    }
+                                    // Pattern 2: Username format (e.g., MEEMohamed)
+                                    if (/^[A-Z]+[a-z]+[A-Za-z]*$/.test(line) &&
+                                        !/^(Lecture|Practical|Seminar|Workshop|Tutorial|Lab|Placement|Project|Exam|Assessment|Online|Hybrid)/i.test(line) &&
+                                        line.length >= 4 && line.length <= 30) {
+                                        lecturer = line;
+                                        continue;
+                                    }
+                                }
+
+                                // Fallback: if nothing matched and we don't have module, treat as module
+                                if (!module) {
+                                    module = line;
+                                }
+                            }
+
+                            // Only proceed if we have at least time and module
+                            if (time && module) {
+                                const topIdx = rowIdx + 1;
+                                const slotInDay = colIdx;
+
+                                try {
+                                    const [startTime, endTime] = time.split(" - ");
+                                    if (!startTime || !endTime) {
+                                         console.warn(`Skipping entry due to invalid time format: "${time}" in ${roomName} on ${dayFullName}`);
+                                         continue;
+                                    }
+
+                                    const startDate = parse(startTime.trim(), "HH:mm", dayDate);
+                                    const endDate = parse(endTime.trim(), "HH:mm", dayDate);
+
+                                    const startDateString = format(startDate, "yyyy-MM-dd'T'HH:mm:ss");
+                                    const endDateString = format(endDate, "yyyy-MM-dd'T'HH:mm:ss");
+
+                                    output.push({
+                                        topIdx,
+                                        slotInDay,
+                                        time,
+                                        module,
+                                        lecturer: lecturer || "",
+                                        group: group || "",
+                                        roomName,
+                                        day: dayFullName,
+                                        startDateString,
+                                        endDateString,
+                                    });
+                                } catch (parseError) {
+                                     console.warn(`Skipping entry due to date parsing error for time "${time}" in ${roomName} on ${dayFullName}:`, parseError);
+                                }
+                            } else {
+                                console.warn(`Skipping entry: couldn't identify time or module in ${roomName} on ${dayFullName}:`, splitText);
+                            }
                         }
                     }
                 }
@@ -279,7 +357,7 @@ async function scrapeRoomTimeTable(
         // throw error;
     }
 
-    console.log(`Finished scraping for ${roomName}. Found ${output.length} entries.`);
+    // console.log(`Finished scraping for ${roomName}. Found ${output.length} entries.`);
     return output;
 }
 const writeRoomsToCSV = async (filePath: string) => {

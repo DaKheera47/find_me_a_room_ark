@@ -1,8 +1,8 @@
 import { Router } from "express";
 import { readRoomsFromCSV, scrapeRoomTimeTable } from "../scraping";
 
-// const CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes
-const CACHE_TTL_MS = 15; // 15 milliseconds for testing
+const CACHE_TTL_MS =
+  process.env.NODE_ENV === "development" ? 15 : 15 * 60 * 1000; // 15 minutes in production
 
 type LecturerCacheEntry = {
   name: string;
