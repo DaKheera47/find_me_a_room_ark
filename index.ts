@@ -7,6 +7,7 @@ import getAvailableRoomsInBuildingRouter from "./routes/get-available-rooms-in-b
 import healthRouter from "./routes/health";
 import findRoomsByDurationRouter from "./routes/find-rooms-by-duration";
 import lecturersRouter from "./routes/lecturers-db";
+import forceScrapeRouter from "./routes/force-scrape";
 
 const app = express();
 const port = process.env.PORT || 8072;
@@ -35,6 +36,8 @@ app.use(healthRouter);
 app.use(findRoomsByDurationRouter);
 
 app.use(lecturersRouter);
+
+app.use(forceScrapeRouter);
 
 app.listen(port, () => {
     console.log(`Server running at http://localhost:${port}`);
