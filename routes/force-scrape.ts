@@ -316,4 +316,39 @@ forceScrapeRouter.get("/scrape-status", (req, res) => {
     });
 });
 
+/**
+ * Trigger a scrape programmatically (used by cron scheduler)
+ * Returns a promise that resolves when the scrape completes
+ */
+export async function triggerScrape(): Promise<void> {
+    if (isScraping) {
+        console.log("[Cron] Scrape already in progress, skipping scheduled run");
+        return;
+    }
+
+    isScraping = true;
+    lastScrapeStatus = {
+        status: "running",
+        startedAt: new Date().toISOString(),
+        completedAt: null,
+        stats: null,
+        error: null,
+    };
+
+    try {
+        await runScrape();
+        lastScrapeStatus.status = "completed";
+        lastScrapeStatus.completedAt = new Date().toISOString();
+    } catch (error) {
+        console.error("Scrape failed:", error);
+        lastScrapeStatus.status = "failed";
+        lastScrapeStatus.completedAt = new Date().toISOString();
+        lastScrapeStatus.error = error instanceof Error ? error.message : String(error);
+        throw error;
+    } finally {
+        isScraping = false;
+    }
+}
+
+export { isScraping, lastScrapeStatus };
 export default forceScrapeRouter;

@@ -31,11 +31,13 @@
     "express": "^4.18.3",
     "fs": "0.0.1-security",
     "locate-chrome": "^0.1.1",
+    "node-cron": "^3.0.3",
     "puppeteer": "^22.4.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.3.3"
   },
   "devDependencies": {
+    "@types/node-cron": "^3.0.11",
     "vitest": "^2.1.0"
   },
   "engines": {

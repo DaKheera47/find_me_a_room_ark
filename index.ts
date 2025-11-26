@@ -1,4 +1,5 @@
 import cors from "cors";
+import cron from "node-cron";
 import express from "express";
 import isRoomFreeRouter from "./routes/is-room-free";
 import scrapeRoomRouter from "./routes/get-room-timetable";
@@ -7,7 +8,7 @@ import getAvailableRoomsInBuildingRouter from "./routes/get-available-rooms-in-b
 import healthRouter from "./routes/health";
 import findRoomsByDurationRouter from "./routes/find-rooms-by-duration";
 import lecturersRouter from "./routes/lecturers-db";
-import forceScrapeRouter from "./routes/force-scrape";
+import forceScrapeRouter, { triggerScrape } from "./routes/force-scrape";
 
 const app = express();
 const port = process.env.PORT || 8072;
@@ -38,6 +39,28 @@ app.use(findRoomsByDurationRouter);
 app.use(lecturersRouter);
 
 app.use(forceScrapeRouter);
+
+// Schedule daily scrape at 03:00 AM London time
+const SCRAPE_CRON_SCHEDULE = process.env.SCRAPE_CRON_SCHEDULE || "0 3 * * *";
+const SCRAPE_TIMEZONE = process.env.SCRAPE_TIMEZONE || "Europe/London";
+
+cron.schedule(
+    SCRAPE_CRON_SCHEDULE,
+    async () => {
+        console.log(`[Cron] Scheduled scrape triggered at ${new Date().toISOString()}`);
+        try {
+            await triggerScrape();
+            console.log(`[Cron] Scheduled scrape completed successfully at ${new Date().toISOString()}`);
+        } catch (error) {
+            console.error(`[Cron] Scheduled scrape failed:`, error);
+        }
+    },
+    {
+        timezone: SCRAPE_TIMEZONE,
+    }
+);
+
+console.log(`[Cron] Scrape scheduled: "${SCRAPE_CRON_SCHEDULE}" (timezone: ${SCRAPE_TIMEZONE})`);
 
 app.listen(port, () => {
     console.log(`Server running at http://localhost:${port}`);
