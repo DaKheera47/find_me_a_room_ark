@@ -145,3 +145,8 @@ dist
 .DS_Store
 
 .claude/
+
+# SQLite database files
+data/*.db
+data/*.db-wal
+data/*.db-shm
