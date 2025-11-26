@@ -8,6 +8,7 @@ import getAvailableRoomsInBuildingRouter from "./routes/get-available-rooms-in-b
 import healthRouter from "./routes/health";
 import findRoomsByDurationRouter from "./routes/find-rooms-by-duration";
 import lecturersRouter from "./routes/lecturers-db";
+import modulesRouter from "./routes/modules";
 import forceScrapeRouter, { triggerScrape } from "./routes/force-scrape";
 
 const app = express();
@@ -37,6 +38,8 @@ app.use(healthRouter);
 app.use(findRoomsByDurationRouter);
 
 app.use(lecturersRouter);
+
+app.use(modulesRouter);
 
 app.use(forceScrapeRouter);
 

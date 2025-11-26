@@ -1,5 +1,17 @@
 import { addDays, startOfToday } from "date-fns";
 
+/**
+ * Remove content inside parentheses and brackets, including the brackets themselves.
+ * Example: "Lecture (On Campus)" -> "Lecture"
+ */
+export function cleanBrackets(str: string): string {
+    if (!str) return str;
+    return str
+        .replace(/\s*\([^)]*\)/g, "")  // Remove (...)
+        .replace(/\s*\[[^\]]*\]/g, "") // Remove [...]
+        .trim();
+}
+
 export type DayAbbreviation =
     | "Mon"
     | "Tue"

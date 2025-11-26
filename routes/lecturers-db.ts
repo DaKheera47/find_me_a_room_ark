@@ -5,6 +5,7 @@ import {
     normaliseLecturerName,
     sortByStartDate,
 } from "../scripts/lecturer-utils";
+import { cleanBrackets } from "../utils";
 
 const lecturersRouter = Router();
 
@@ -161,7 +162,7 @@ lecturersRouter.get("/lecturers/:lecturerName", async (req, res) => {
             time: e.time,
             module: e.module,
             lecturer: lecturer.name,
-            group: e.group,
+            group: cleanBrackets(e.group),
             roomName: e.roomName,
             day: e.day,
             startDateString: e.startDateString,
