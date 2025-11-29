@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseModule } from "./scripts/db";
+import { parseModule } from "../scripts/db";
 
 describe("db utilities", () => {
     describe("parseModule", () => {

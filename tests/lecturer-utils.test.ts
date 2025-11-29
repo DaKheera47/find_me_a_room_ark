@@ -4,7 +4,7 @@ import {
     normaliseLecturerName,
     titleCaseSegment,
     sortByStartDate,
-} from "./scripts/lecturer-utils";
+} from "../scripts/lecturer-utils";
 
 describe("lecturer-utils", () => {
     describe("titleCaseSegment", () => {
