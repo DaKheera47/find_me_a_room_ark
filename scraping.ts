@@ -330,6 +330,7 @@ async function scrapeRoomTimeTable(
                                         module,
                                         lecturer: lecturer || "",
                                         group: finalGroup,
+                                        sessionType: sessionType || "",
                                         roomName,
                                         day: dayFullName,
                                         startDateString,
