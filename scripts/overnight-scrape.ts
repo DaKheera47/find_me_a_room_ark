@@ -5,12 +5,13 @@
  * Run via: npm run scrape
  *
  * Features:
- * - 1 second delay between requests to avoid rate limiting
+ * - 3 second delay between requests to avoid rate limiting (uses authenticated endpoint)
  * - Retry failed rooms up to 3 times
  * - Resume capability (skips already-scraped rooms)
  * - Rotates old database to dated archive
  */
 
+import "dotenv/config";  // Load environment variables
 import { format } from "date-fns";
 import { rotateDatabase, initializeDatabase, parseModule } from "./db";
 import { readRoomsFromCSV, scrapeRoomTimeTable } from "../scraping";
@@ -20,7 +21,7 @@ import {
 } from "./lecturer-utils";
 import type Database from "better-sqlite3";
 
-const DELAY_MS = 100; // 1 second between requests
+const DELAY_MS = 3000; // 3 seconds between requests (slow scrape for authenticated endpoint)
 const MAX_ATTEMPTS = 3;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
