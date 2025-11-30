@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getDatabase } from "../scripts/db";
+import { getCoursesDatabase } from "../scripts/db";
 
 const coursesRouter = Router();
 
@@ -32,7 +32,7 @@ interface CourseModule {
  */
 coursesRouter.get("/courses", (req, res) => {
     try {
-        const db = getDatabase();
+        const db = getCoursesDatabase();
         if (!db) {
             return res.status(503).json({ error: "Database not available" });
         }
@@ -79,7 +79,7 @@ coursesRouter.get("/courses/:courseId", (req, res) => {
             return res.status(400).json({ error: "Invalid course ID" });
         }
 
-        const db = getDatabase();
+        const db = getCoursesDatabase();
         if (!db) {
             return res.status(503).json({ error: "Database not available" });
         }
@@ -156,7 +156,7 @@ coursesRouter.get("/courses/:courseId/years/:yearId/modules", (req, res) => {
             return res.status(400).json({ error: "Invalid course or year ID" });
         }
 
-        const db = getDatabase();
+        const db = getCoursesDatabase();
         if (!db) {
             return res.status(503).json({ error: "Database not available" });
         }
@@ -220,7 +220,7 @@ coursesRouter.get("/courses/search/modules", (req, res) => {
             return res.status(400).json({ error: "Module code is required" });
         }
 
-        const db = getDatabase();
+        const db = getCoursesDatabase();
         if (!db) {
             return res.status(503).json({ error: "Database not available" });
         }

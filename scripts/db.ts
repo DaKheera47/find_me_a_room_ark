@@ -6,6 +6,7 @@ import path from "path";
 // Use process.cwd() for consistent path resolution regardless of compiled/source execution
 const DATA_DIR = path.join(process.cwd(), "data");
 const DB_PATH = path.join(DATA_DIR, "events.db");
+const COURSES_DB_PATH = path.join(DATA_DIR, "courses.db");
 
 // Ensure data directory exists
 if (!existsSync(DATA_DIR)) {
@@ -107,7 +108,19 @@ export function initializeDatabase(): Database.Database {
         CREATE INDEX IF NOT EXISTS idx_events_start ON events(start_time);
         CREATE INDEX IF NOT EXISTS idx_lecturers_lower ON lecturers(name_lower);
         CREATE INDEX IF NOT EXISTS idx_scrape_log_status ON scrape_log(status);
+    `);
 
+    return db;
+}
+
+/**
+ * Initialize the courses database (separate from events, not rotated)
+ */
+export function initializeCoursesDatabase(): Database.Database {
+    const db = new Database(COURSES_DB_PATH);
+    db.pragma("journal_mode = WAL");
+
+    db.exec(`
         -- Courses table
         CREATE TABLE IF NOT EXISTS courses (
             id              INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -156,6 +169,18 @@ export function getDatabase(): Database.Database | null {
 }
 
 /**
+ * Get courses database connection (for API routes)
+ */
+export function getCoursesDatabase(): Database.Database | null {
+    if (!existsSync(COURSES_DB_PATH)) {
+        return null;
+    }
+    const db = new Database(COURSES_DB_PATH, { readonly: true });
+    db.pragma("journal_mode = WAL");
+    return db;
+}
+
+/**
  * Parse module string into code and name
  * e.g., "EL4011 - Artificial Intelligence" -> { code: "EL4011", name: "Artificial Intelligence" }
  */
@@ -178,4 +203,4 @@ export function parseModule(moduleRaw: string): { code: string | null; name: str
     return { code: null, name: moduleRaw.trim() };
 }
 
-export { DB_PATH, DATA_DIR };
+export { DB_PATH, DATA_DIR, COURSES_DB_PATH };

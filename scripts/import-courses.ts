@@ -1,7 +1,7 @@
 import fs from "fs";
 import path from "path";
 import Database from "better-sqlite3";
-import { DATA_DIR, initializeDatabase } from "./db";
+import { initializeCoursesDatabase } from "./db";
 
 // Types for the course JSON structure
 interface CourseModule {
@@ -158,8 +158,8 @@ export function importCourses(db: Database.Database, clearFirst: boolean = true)
 if (require.main === module) {
     console.log("Starting course import...\n");
 
-    // Initialize database (creates tables if needed)
-    const db = initializeDatabase();
+    // Initialize courses database (creates tables if needed)
+    const db = initializeCoursesDatabase();
 
     try {
         importCourses(db, true);
