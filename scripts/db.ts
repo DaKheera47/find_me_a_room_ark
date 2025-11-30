@@ -107,6 +107,37 @@ export function initializeDatabase(): Database.Database {
         CREATE INDEX IF NOT EXISTS idx_events_start ON events(start_time);
         CREATE INDEX IF NOT EXISTS idx_lecturers_lower ON lecturers(name_lower);
         CREATE INDEX IF NOT EXISTS idx_scrape_log_status ON scrape_log(status);
+
+        -- Courses table
+        CREATE TABLE IF NOT EXISTS courses (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            url             TEXT UNIQUE NOT NULL,
+            type            TEXT NOT NULL CHECK(type IN ('undergrad', 'postgrad')),
+            title           TEXT NOT NULL
+        );
+
+        -- Course years
+        CREATE TABLE IF NOT EXISTS course_years (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            course_id       INTEGER NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+            label           TEXT NOT NULL,
+            year_order      INTEGER NOT NULL
+        );
+
+        -- Course modules (links courses to modules)
+        CREATE TABLE IF NOT EXISTS course_modules (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            course_year_id  INTEGER NOT NULL REFERENCES course_years(id) ON DELETE CASCADE,
+            module_code     TEXT NOT NULL,
+            module_name     TEXT NOT NULL,
+            description     TEXT,
+            section_type    TEXT NOT NULL CHECK(section_type IN ('compulsory', 'optional', 'other'))
+        );
+
+        -- Indexes for course lookups
+        CREATE INDEX IF NOT EXISTS idx_course_modules_code ON course_modules(module_code);
+        CREATE INDEX IF NOT EXISTS idx_course_years_course ON course_years(course_id);
+        CREATE INDEX IF NOT EXISTS idx_courses_type ON courses(type);
     `);
 
     return db;

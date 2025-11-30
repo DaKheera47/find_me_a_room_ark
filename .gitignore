@@ -152,3 +152,4 @@ data/*.db-wal
 data/*.db-shm
 
 debug/
+static/courses/
