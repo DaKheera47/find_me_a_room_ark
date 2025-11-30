@@ -17,6 +17,7 @@ interface TimetableEvent {
     module: string;
     lecturer: string;
     group: string;
+    sessionType: string;
 }
 
 interface ModuleGroup {
@@ -273,7 +274,8 @@ icsRouter.get("/timetable/ics", async (req, res) => {
                     e.module_name as moduleName,
                     e.module_raw as module,
                     e.lecturer_raw as lecturer,
-                    e.group_type as "group"
+                    e.group_type as "group",
+                    e.session_type as sessionType
                 FROM events e
                 WHERE e.module_code = ?
             `;
@@ -316,10 +318,24 @@ icsRouter.get("/timetable/ics", async (req, res) => {
             const uid = `${event.id}-${calendarId}@findmearoom.uclan`;
             const dtStart = formatICSDate(event.startDateString);
             const dtEnd = formatICSDate(event.endDateString);
-            // Format: NAME - KIND - CODE (e.g., "Distributed Systems - Full_Group - CO3404")
-            const moduleName = event.moduleName || event.module || event.moduleCode;
-            const groupName = event.group || "Session";
-            const summary = `${moduleName} - ${groupName} - ${event.moduleCode}`;
+            
+            // Clean module name by removing content in brackets (e.g., "(Full Yr at Preston)")
+            const rawModuleName = event.moduleName || event.module || event.moduleCode;
+            const cleanedModuleName = rawModuleName.replace(/\s*\([^)]*\)\s*/g, "").trim();
+            
+            // Extract session type (Lecture, Practical, Lab, etc.) from sessionType field
+            // sessionType is like "Lecture (On Campus)" or "Practical (On Campus)"
+            let sessionTypeLabel = "Session";
+            if (event.sessionType) {
+                // Extract just the type part before any parentheses
+                const typeMatch = event.sessionType.match(/^([^(]+)/);
+                if (typeMatch) {
+                    sessionTypeLabel = typeMatch[1].trim();
+                }
+            }
+            
+            // Format: NAME - TYPE - CODE (e.g., "Distributed Systems - Lecture - CO3404")
+            const summary = `${cleanedModuleName} - ${sessionTypeLabel} - ${event.moduleCode}`;
             const location = event.roomName;
             const descriptionParts = [
                 event.lecturer ? `Lecturer: ${event.lecturer}` : "",
