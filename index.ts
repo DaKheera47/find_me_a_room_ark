@@ -49,8 +49,8 @@ app.use(icsRouter);
 
 app.use(coursesRouter);
 
-// Schedule daily scrape at 03:00 AM London time
-const SCRAPE_CRON_SCHEDULE = process.env.SCRAPE_CRON_SCHEDULE || "0 3 * * *";
+// Schedule daily scrape at 04:00 AM London time
+const SCRAPE_CRON_SCHEDULE = process.env.SCRAPE_CRON_SCHEDULE || "0 4 * * *";
 const SCRAPE_TIMEZONE = process.env.SCRAPE_TIMEZONE || "Europe/London";
 
 cron.schedule(

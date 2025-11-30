@@ -56,12 +56,24 @@ icsRouter.get("/modules/:moduleCode/groups", async (req, res) => {
             )
             .all(moduleCode) as Array<{ group: string }>;
 
+        // Get total session count for this module (regardless of group)
+        const sessionCount = db
+            .prepare(
+                `
+                SELECT COUNT(*) as count
+                FROM events 
+                WHERE module_code = ?
+            `
+            )
+            .get(moduleCode) as { count: number };
+
         db.close();
 
         res.json({
             moduleCode,
             groups: groups.map((g) => g.group),
             count: groups.length,
+            sessionCount: sessionCount.count,
         });
     } catch (error) {
         console.error("Failed to load groups for module", error);
@@ -304,16 +316,18 @@ icsRouter.get("/timetable/ics", async (req, res) => {
             const uid = `${event.id}-${calendarId}@findmearoom.uclan`;
             const dtStart = formatICSDate(event.startDateString);
             const dtEnd = formatICSDate(event.endDateString);
-            const summary = `${event.moduleCode} - ${event.group || "Session"}`;
+            // Format: NAME - KIND - CODE (e.g., "Distributed Systems - Full_Group - CO3404")
+            const moduleName = event.moduleName || event.module || event.moduleCode;
+            const groupName = event.group || "Session";
+            const summary = `${moduleName} - ${groupName} - ${event.moduleCode}`;
             const location = event.roomName;
-            const description = [
-                event.moduleName || event.module,
+            const descriptionParts = [
                 event.lecturer ? `Lecturer: ${event.lecturer}` : "",
                 event.group ? `Group: ${event.group}` : "",
                 event.time ? `Time: ${event.time}` : "",
-            ]
-                .filter(Boolean)
-                .join("\\n");
+            ].filter(Boolean);
+            // Use literal \n for ICS newlines in description
+            const description = descriptionParts.join("\\n");
 
             icsLines.push(
                 "BEGIN:VEVENT",
@@ -323,7 +337,7 @@ icsRouter.get("/timetable/ics", async (req, res) => {
                 `DTEND:${dtEnd}`,
                 `SUMMARY:${escapeICS(summary)}`,
                 `LOCATION:${escapeICS(location)}`,
-                `DESCRIPTION:${escapeICS(description)}`,
+                `DESCRIPTION:${description}`,
                 "END:VEVENT"
             );
         }
