@@ -6,6 +6,7 @@ import path from "path";
 // Use process.cwd() for consistent path resolution regardless of compiled/source execution
 const DATA_DIR = path.join(process.cwd(), "data");
 const DB_PATH = path.join(DATA_DIR, "events.db");
+const COURSES_DB_PATH = path.join(DATA_DIR, "courses.db");
 
 // Ensure data directory exists
 if (!existsSync(DATA_DIR)) {
@@ -113,6 +114,49 @@ export function initializeDatabase(): Database.Database {
 }
 
 /**
+ * Initialize the courses database (separate from events, not rotated)
+ */
+export function initializeCoursesDatabase(): Database.Database {
+    const db = new Database(COURSES_DB_PATH);
+    db.pragma("journal_mode = WAL");
+
+    db.exec(`
+        -- Courses table
+        CREATE TABLE IF NOT EXISTS courses (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            url             TEXT UNIQUE NOT NULL,
+            type            TEXT NOT NULL CHECK(type IN ('undergrad', 'postgrad')),
+            title           TEXT NOT NULL
+        );
+
+        -- Course years
+        CREATE TABLE IF NOT EXISTS course_years (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            course_id       INTEGER NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+            label           TEXT NOT NULL,
+            year_order      INTEGER NOT NULL
+        );
+
+        -- Course modules (links courses to modules)
+        CREATE TABLE IF NOT EXISTS course_modules (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            course_year_id  INTEGER NOT NULL REFERENCES course_years(id) ON DELETE CASCADE,
+            module_code     TEXT NOT NULL,
+            module_name     TEXT NOT NULL,
+            description     TEXT,
+            section_type    TEXT NOT NULL CHECK(section_type IN ('compulsory', 'optional', 'other'))
+        );
+
+        -- Indexes for course lookups
+        CREATE INDEX IF NOT EXISTS idx_course_modules_code ON course_modules(module_code);
+        CREATE INDEX IF NOT EXISTS idx_course_years_course ON course_years(course_id);
+        CREATE INDEX IF NOT EXISTS idx_courses_type ON courses(type);
+    `);
+
+    return db;
+}
+
+/**
  * Get an existing database connection (for API routes)
  */
 export function getDatabase(): Database.Database | null {
@@ -120,6 +164,18 @@ export function getDatabase(): Database.Database | null {
         return null;
     }
     const db = new Database(DB_PATH, { readonly: true });
+    db.pragma("journal_mode = WAL");
+    return db;
+}
+
+/**
+ * Get courses database connection (for API routes)
+ */
+export function getCoursesDatabase(): Database.Database | null {
+    if (!existsSync(COURSES_DB_PATH)) {
+        return null;
+    }
+    const db = new Database(COURSES_DB_PATH, { readonly: true });
     db.pragma("journal_mode = WAL");
     return db;
 }
@@ -147,4 +203,4 @@ export function parseModule(moduleRaw: string): { code: string | null; name: str
     return { code: null, name: moduleRaw.trim() };
 }
 
-export { DB_PATH, DATA_DIR };
+export { DB_PATH, DATA_DIR, COURSES_DB_PATH };

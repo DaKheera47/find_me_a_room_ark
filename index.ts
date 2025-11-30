@@ -10,6 +10,8 @@ import findRoomsByDurationRouter from "./routes/find-rooms-by-duration";
 import lecturersRouter from "./routes/lecturers-db";
 import modulesRouter from "./routes/modules";
 import forceScrapeRouter, { triggerScrape } from "./routes/force-scrape";
+import icsRouter from "./routes/ics-timetable";
+import coursesRouter from "./routes/courses";
 
 const app = express();
 const port = process.env.PORT || 8072;
@@ -43,8 +45,12 @@ app.use(modulesRouter);
 
 app.use(forceScrapeRouter);
 
-// Schedule daily scrape at 03:00 AM London time
-const SCRAPE_CRON_SCHEDULE = process.env.SCRAPE_CRON_SCHEDULE || "0 3 * * *";
+app.use(icsRouter);
+
+app.use(coursesRouter);
+
+// Schedule daily scrape at 04:00 AM London time
+const SCRAPE_CRON_SCHEDULE = process.env.SCRAPE_CRON_SCHEDULE || "0 4 * * *";
 const SCRAPE_TIMEZONE = process.env.SCRAPE_TIMEZONE || "Europe/London";
 
 cron.schedule(
