@@ -1,8 +1,32 @@
 import { Router } from "express";
 import { getDatabase } from "../scripts/db";
 import { format, parse, addWeeks, isBefore } from "date-fns";
+import { readBuildingsFromCSV } from "../scraping";
 
 const icsRouter = Router();
+
+// Cache for buildings data
+let buildingsCache: Array<{ name: string; address: string; code: string }> | null = null;
+
+async function getBuildings() {
+    if (!buildingsCache) {
+        const buildings = await readBuildingsFromCSV("./static/preston_buildings.csv");
+        buildingsCache = buildings.map(b => ({ name: b.name, address: b.address, code: b.code }));
+    }
+    return buildingsCache;
+}
+
+/**
+ * Get location string for ICS event
+ */
+async function getLocationString(roomName: string, buildingCode: string): Promise<string> {
+    const buildings = await getBuildings();
+    const building = buildings.find(b => b.code === buildingCode);
+    if (building) {
+        return `${roomName}, ${building.name}`;
+    }
+    return roomName;
+}
 
 interface TimetableEvent {
     id: number;
@@ -336,7 +360,7 @@ icsRouter.get("/timetable/ics", async (req, res) => {
             
             // Format: NAME - TYPE - CODE (e.g., "Distributed Systems - Lecture - CO3404")
             const summary = `${cleanedModuleName} - ${sessionTypeLabel} - ${event.moduleCode}`;
-            const location = event.roomName;
+            const location = await getLocationString(event.roomName, event.buildingCode);
             const descriptionParts = [
                 event.lecturer ? `Lecturer: ${event.lecturer}` : "",
                 event.group ? `Group: ${event.group}` : "",
