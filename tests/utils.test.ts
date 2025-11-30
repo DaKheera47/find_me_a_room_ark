@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { getDayFullNameFromAbbreviation, getNextOccurrenceOfDay } from "./utils";
+import { getDayFullNameFromAbbreviation, getNextOccurrenceOfDay } from "../utils";
 
 describe("utils", () => {
     describe("getDayFullNameFromAbbreviation", () => {

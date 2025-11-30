@@ -8,6 +8,30 @@ import {
     getNextOccurrenceOfDay,
 } from "./utils";
 
+// SpanWeek URL format (requires auth, but has group info)
+const SPANWEEK_BASE_URL = "https://apps.uclan.ac.uk/TimeTables/SpanWeek/WkMatrixNow";
+
+// Build auth header from environment variables
+function getAuthHeader(): string | null {
+    const username = process.env.UCLAN_USERNAME;
+    const password = process.env.UCLAN_PASSWORD;
+    
+    if (!username || !password) {
+        console.warn("UCLAN_USERNAME or UCLAN_PASSWORD not set - scraping will likely fail with 401");
+        return null;
+    }
+    
+    return "Basic " + Buffer.from(`${username}:${password}`).toString("base64");
+}
+
+// Convert old MvCRoomTimetable URL to SpanWeek URL
+function convertToSpanWeekUrl(oldUrl: string, roomName: string): string {
+    // Old format: http://apps.uclan.ac.uk/MvCRoomTimetable/CM/CM017
+    // New format: https://apps.uclan.ac.uk/TimeTables/SpanWeek/WkMatrixNow?entId=CM017&entType=Room
+    return `${SPANWEEK_BASE_URL}?entId=${roomName}&entType=Room`;
+}
+
+// SpanWeek format uses different CSS classes than MvCRoomTimetable
 const VALID_EVENT_CLASSNAMES = [
     "scan_open",
     "TimeTableEvent",
@@ -85,18 +109,27 @@ async function scrapeRoomTimeTable(
     let output: TimetableEntry[] = [];
 
     try {
+        // Convert to SpanWeek URL format (which includes group info)
+        const spanWeekUrl = convertToSpanWeekUrl(roomUrl, roomName);
+        const authHeader = getAuthHeader();
+        
+        // Build headers
+        const headers: Record<string, string> = {
+            'User-Agent': 'Mozilla/5.0',
+        };
+        
+        if (authHeader) {
+            headers['Authorization'] = authHeader;
+        }
+
         // 1. Fetch the HTML content
-        const response = await fetch(roomUrl, {
-            // Add headers to mimic a browser, potentially avoiding blocks
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
-                'Accept-Language': 'en-US,en;q=0.9',
-            }
+        const response = await fetch(spanWeekUrl, {
+            headers,
+            redirect: 'follow',
         });
 
         if (!response.ok) {
-            throw new Error(`Failed to fetch ${roomUrl}: Status ${response.status}`);
+            throw new Error(`Failed to fetch ${spanWeekUrl}: Status ${response.status}`);
         }
 
         console.log(`Response status for ${roomName}: ${response.status}`);
@@ -111,16 +144,34 @@ async function scrapeRoomTimeTable(
         const rows = $(".TimeTableTable tr");
 
         rows.each((rowIdx, trElement) => {
-            const columns = $(trElement).find("td");
+            const $row = $(trElement);
+            const columns = $row.find("td");
 
             if (columns.length === 0) return; // Skip header rows or rows without TDs
 
             // --- Get Day Name ---
-            // Use cheerio's text() which usually handles basic whitespace from HTML structure
-            const dayNameColumnText = $(columns[0]).text().trim();
-            const dayFullName = getDayFullNameFromAbbreviation(
-                dayNameColumnText as DayAbbreviation // Be careful with type assertion
-            );
+            // SpanWeek format: day name is in <th> element, full name like "Monday"
+            // MvCRoomTimetable format: day name is in first <td>, abbreviated like "Mon"
+            let dayFullName: string = "";
+            
+            const thElement = $row.find("th.TimeTableRowHeader, th.TimeTableCurrentRowHeader").first();
+            if (thElement.length > 0) {
+                // SpanWeek format - extract day name from th (e.g., "Monday 24/11/2025")
+                const thText = thElement.text().trim();
+                // Extract just the day name (first word)
+                const dayMatch = thText.match(/^(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)/i);
+                if (dayMatch) {
+                    dayFullName = dayMatch[1];
+                    // Capitalize first letter
+                    dayFullName = dayFullName.charAt(0).toUpperCase() + dayFullName.slice(1).toLowerCase();
+                }
+            } else {
+                // MvCRoomTimetable format - day name in first td (abbreviated)
+                const dayNameColumnText = $(columns[0]).text().trim();
+                dayFullName = getDayFullNameFromAbbreviation(
+                    dayNameColumnText as DayAbbreviation
+                );
+            }
 
             // Skip the row if it's not a valid day name
             if (!daysOfWeek.includes(dayFullName)) {
@@ -134,7 +185,13 @@ async function scrapeRoomTimeTable(
                 const tdCheerio = $(tdElement);
                 const className = tdCheerio.attr('class') || '';
 
-                if (VALID_EVENT_CLASSNAMES.includes(className)) {
+                // SpanWeek uses compound classes like "TimeTableEvent CompulsAll FirstRow Teach"
+                // Check if any of the valid event classnames are present in the class string
+                const hasEventClass = VALID_EVENT_CLASSNAMES.some(validClass => 
+                    className.includes(validClass)
+                );
+
+                if (hasEventClass) {
 
                     // --- Extract Text, handling <br> as newline ---
                     const tempTd = tdCheerio.clone();
@@ -185,7 +242,8 @@ async function scrapeRoomTimeTable(
                             let time: string | null = null;
                             let module: string | null = null;
                             let lecturer: string | null = null;
-                            let group: string | null = null;
+                            let sessionType: string | null = null;  // e.g., "Lecture (On Campus)"
+                            let groupCohort: string | null = null;  // e.g., "/CS1", "Full_Group"
 
                             for (const line of splitText) {
                                 // Time pattern: HH:MM - HH:MM
@@ -200,13 +258,21 @@ async function scrapeRoomTimeTable(
                                     continue;
                                 }
 
-                                // Group patterns: session types
-                                if (!group && /^(Lecture|Practical|Seminar|Workshop|Tutorial|Lab|Placement|Project|Exam|Assessment|Drop[\s-]?in|Non[\s-]?Teaching)/i.test(line)) {
-                                    group = line;
+                                // SpanWeek Group/Cohort pattern: "(Group: /CS1)" or "(Group: Full_Group)" on its own line
+                                // Extract just the cohort part (e.g., "/CS1", "Full_Group")
+                                const cohortMatch = line.match(/^\(Group:\s*([^\)]+)\)\s*$/i);
+                                if (!groupCohort && cohortMatch) {
+                                    groupCohort = cohortMatch[1].trim();
                                     continue;
                                 }
-                                if (!group && /\((On\s*Campus|Online|Hybrid)\)\s*$/i.test(line)) {
-                                    group = line;
+
+                                // Session type patterns: e.g., "Lecture (On Campus)", "Practical (On Campus)"
+                                if (!sessionType && /^(Lecture|Practical|Seminar|Workshop|Tutorial|Lab|Placement|Project|Exam|Assessment|Drop[\s-]?in|Non[\s-]?Teaching)/i.test(line)) {
+                                    sessionType = line;
+                                    continue;
+                                }
+                                if (!sessionType && /\((On\s*Campus|Online|Hybrid)\)\s*$/i.test(line)) {
+                                    sessionType = line;
                                     continue;
                                 }
 
@@ -235,6 +301,10 @@ async function scrapeRoomTimeTable(
                                 }
                             }
 
+                            // group field = just the cohort (e.g., "/CS1", "Full_Group")
+                            // sessionType is separate (e.g., "Practical (On Campus)")
+                            const finalGroup = groupCohort || "";
+
                             // Only proceed if we have at least time and module
                             if (time && module) {
                                 const topIdx = rowIdx + 1;
@@ -259,7 +329,8 @@ async function scrapeRoomTimeTable(
                                         time,
                                         module,
                                         lecturer: lecturer || "",
-                                        group: group || "",
+                                        group: finalGroup,
+                                        sessionType: sessionType || "",
                                         roomName,
                                         day: dayFullName,
                                         startDateString,

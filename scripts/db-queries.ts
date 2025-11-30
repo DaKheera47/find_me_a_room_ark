@@ -24,6 +24,7 @@ interface DbEventRow {
     module_raw: string | null;
     lecturer_raw: string | null;
     group_type: string | null;
+    session_type: string | null;
     slot_index: number | null;
     row_index: number | null;
     scraped_at: string;
@@ -40,6 +41,7 @@ function dbRowToTimetableEntry(row: DbEventRow): TimetableEntry {
         module: row.module_raw ?? "",
         lecturer: row.lecturer_raw ?? "",
         group: row.group_type ?? "",
+        sessionType: row.session_type ?? "",
         roomName: row.room_name,
         day: row.day,
         startDateString: row.start_time,

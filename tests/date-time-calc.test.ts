@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { findRoomAvailability, normalizeDateTime } from "./date_time_calc";
+import { findRoomAvailability, normalizeDateTime } from "../date_time_calc";
 
 describe("date_time_calc", () => {
     describe("normalizeDateTime", () => {
@@ -45,6 +45,7 @@ describe("date_time_calc", () => {
                     module: "Test Module",
                     lecturer: "Test Lecturer",
                     group: "Test Group",
+                    sessionType: "",
                     roomName: "CM234",
                     day: "Monday",
                     startDateString: "2025-11-25T09:00:00",
@@ -67,6 +68,7 @@ describe("date_time_calc", () => {
                     module: "Test Module",
                     lecturer: "Test Lecturer",
                     group: "Test Group",
+                    sessionType: "",
                     roomName: "CM234",
                     day: "Monday",
                     startDateString: "2025-11-25T09:00:00",
@@ -89,6 +91,7 @@ describe("date_time_calc", () => {
                     module: "Test Module",
                     lecturer: "Test Lecturer",
                     group: "Test Group",
+                    sessionType: "",
                     roomName: "CM234",
                     day: "Monday",
                     startDateString: "2025-11-25T09:00:00",
@@ -111,6 +114,7 @@ describe("date_time_calc", () => {
                     module: "Morning Module",
                     lecturer: "Lecturer 1",
                     group: "Group 1",
+                    sessionType: "",
                     roomName: "CM234",
                     day: "Monday",
                     startDateString: "2025-11-25T09:00:00",
@@ -123,6 +127,7 @@ describe("date_time_calc", () => {
                     module: "Afternoon Module",
                     lecturer: "Lecturer 2",
                     group: "Group 2",
+                    sessionType: "",
                     roomName: "CM234",
                     day: "Monday",
                     startDateString: "2025-11-25T14:00:00",
@@ -145,6 +150,7 @@ describe("date_time_calc", () => {
                     module: "Morning Module",
                     lecturer: "Lecturer 1",
                     group: "Group 1",
+                    sessionType: "",
                     roomName: "CM234",
                     day: "Monday",
                     startDateString: "2025-11-25T09:00:00",
@@ -157,6 +163,7 @@ describe("date_time_calc", () => {
                     module: "Afternoon Module",
                     lecturer: "Lecturer 2",
                     group: "Group 2",
+                    sessionType: "",
                     roomName: "CM234",
                     day: "Monday",
                     startDateString: "2025-11-25T14:00:00",

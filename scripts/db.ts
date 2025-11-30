@@ -60,6 +60,7 @@ export function initializeDatabase(): Database.Database {
             module_raw      TEXT,
             lecturer_raw    TEXT,
             group_type      TEXT,
+            session_type    TEXT,
             slot_index      INTEGER,
             row_index       INTEGER,
             scraped_at      TEXT NOT NULL,

@@ -41,6 +41,7 @@ interface TimetableEntry {
     module: string;
     lecturer: string;
     group: string;
+    sessionType: string;
     roomName: string;
     day: string;
     startDateString: string;
