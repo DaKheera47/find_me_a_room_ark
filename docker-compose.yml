@@ -4,9 +4,10 @@ services:
     container_name: free-room-api
     ports:
       - "8072:8072"
-    # volumes:
-      # Removed volume mappings to prevent overriding built files
-      # Use docker-compose down && docker-compose build --no-cache && docker-compose up -d for deployments
+    volumes:
+      - ./data:/app/data
+    env_file:
+      - .env
     environment:
       NODE_ENV: development # Or production
     # Add init process and capabilities required by the official image
